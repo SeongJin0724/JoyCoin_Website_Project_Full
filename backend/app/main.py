@@ -5,11 +5,20 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.db import Base, engine
 from app.api.auth import router as auth_router
+from app.api.deposits import router as deposits_router
+from app.api.admin_deposits import router as admin_deposits_router
 
 app = FastAPI(title="JoyCoin Website API")
 
-origins = [o.strip() for o in os.getenv(
-    "CORS_ORIGINS", "http://localhost:3000").split(",")]
+# Routers
+app.include_router(auth_router)
+app.include_router(deposits_router)
+app.include_router(admin_deposits_router)
+
+# CORS
+origins = [
+    o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -32,7 +41,3 @@ def on_startup():
 @app.get("/healthz")
 def healthz():
     return {"status": "ok"}
-
-
-# Routers
-app.include_router(auth_router)

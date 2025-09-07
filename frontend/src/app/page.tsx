@@ -5,6 +5,7 @@ export default function Page() {
       <p className="text-lg text-slate-600">안정적이고 안전한 해시파워 보상 — coindrop 스타일 랜딩</p>
       <div className="mt-8">
         <a href="/buy" className="px-6 py-3 rounded-full bg-violet-600 text-white hover:bg-violet-700">구매하기</a>
+        <a href="/deposits" className="px-6 py-3 rounded-full bg-violet-600 text-white hover:bg-violet-700">내 입금내역</a>
       </div>
     </section>
   );

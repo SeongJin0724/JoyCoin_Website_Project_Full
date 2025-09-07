@@ -6,6 +6,7 @@ from app.core.email import send_email
 from app.core.verify import generate_email_verify_link, consume_email_token
 from app.schemas.auth import SignupIn, LoginIn, Tokens
 from app.models.user import User
+from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -50,7 +51,14 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="이메일 인증이 필요합니다."
         )
-    return Tokens(access=create_access_token(sub=user.email))
+
+    # ✅ 여기서 토큰 발급
+    access = create_access_token(
+        user_id=user.id,  # 정수형 id 사용
+        minutes=settings.JWT_EXPIRE_MIN,
+        secret=settings.JWT_SECRET,
+    )
+    return Tokens(access=access)
 
 
 @router.get("/verify-email")
