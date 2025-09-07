@@ -1,27 +1,28 @@
 # backend/app/core/config.py
-import os
-from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    APP_ENV: str = Field(default=os.getenv("APP_ENV", "dev"))
+    # ✅ v2 방식
+    model_config = SettingsConfigDict(env_file=".env.dev", extra="ignore")
 
-    DB_URL: str = Field(
-        default=os.getenv("DB_URL", "postgresql+psycopg://app:app@db:5432/app")
-    )
-    JWT_SECRET: str = Field(default=os.getenv("JWT_SECRET", "change_me"))
-    JWT_EXPIRE_MIN: int = Field(default=int(os.getenv("JWT_EXPIRE_MIN", "20")))
+    APP_ENV: str = "dev"
 
-    CORS_ORIGINS: str = Field(
-        default=os.getenv("CORS_ORIGINS", "http://localhost:3000")
-    )
+    # 쉼표로 구분한 문자열로 받아서 나중에 파싱
+    CORS_ORIGINS: str = "http://localhost:3000"
 
-    USDT_CHAIN: str = Field(default=os.getenv("USDT_CHAIN", "TRON"))
-    USDT_ADMIN_ADDRESS: str = Field(default=os.getenv("USDT_ADMIN_ADDRESS", ""))
+    DB_URL: str = "postgresql+psycopg://app:app@db:5432/app"
+    JWT_SECRET: str = "change_me"
+    JWT_EXPIRE_MIN: int = 20
 
-    class Config:
-        extra = "ignore"  # 환경변수에 불필요한 키가 있어도 무시
+    # 슈퍼관리자 (없어도 됨)
+    SUPER_ADMIN_EMAIL: str | None = None
+    SUPER_ADMIN_PASSWORD: str | None = None
+
+    # 편의 프로퍼티: 리스트로 꺼내쓰기
+    @property
+    def cors_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
 
 settings = Settings()
