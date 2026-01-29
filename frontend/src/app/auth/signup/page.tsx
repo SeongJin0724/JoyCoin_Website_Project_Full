@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { signup } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
   const [email, setEmail] = useState(""); 
@@ -8,45 +9,126 @@ export default function SignupPage() {
   const [confirm, setConfirm] = useState("");
   const [region, setRegion] = useState("");
   const [ref, setRef] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const onSignup = async () => {
-    if (password.length < 12) { setMsg("비밀번호는 12자 이상이어야 합니다."); return; }
-    if (password !== confirm) { setMsg("비밀번호가 일치하지 않습니다."); return; }
-    setLoading(true); setMsg(null);
+  const onSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    
+    if (password.length < 12) { 
+      setError("비밀번호는 12자 이상이어야 합니다."); 
+      return; 
+    }
+    if (password !== confirm) { 
+      setError("비밀번호가 일치하지 않습니다."); 
+      return; 
+    }
+    
+    setLoading(true);
     try {
       const res = await signup(email, password, region || undefined, ref || undefined);
       localStorage.setItem("access", res.access);
-      setMsg("회원가입 성공!");
-    } catch (e:any) {
-      setMsg(e.message);
-    } finally { setLoading(false); }
+      router.push("/deposits");
+    } catch (e: any) {
+      setError(e.message || "회원가입 실패");
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white border rounded-xl p-6">
-      <h2 className="text-xl font-bold mb-4">회원가입</h2>
-      <label className="block text-sm mb-1">이메일</label>
-      <input className="w-full border rounded p-2 mb-3" value={email} onChange={e=>setEmail(e.target.value)} />
-      <label className="block text-sm mb-1">비밀번호</label>
-      <input type="password" className="w-full border rounded p-2 mb-3" value={password} onChange={e=>setPassword(e.target.value)} />
-      <label className="block text-sm mb-1">비밀번호 확인</label>
-      <input type="password" className="w-full border rounded p-2 mb-4" value={confirm} onChange={e=>setConfirm(e.target.value)} />
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm mb-1">지역 코드(선택)</label>
-          <input className="w-full border rounded p-2" value={region} onChange={e=>setRegion(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">추천 코드(선택)</label>
-          <input className="w-full border rounded p-2" value={ref} onChange={e=>setRef(e.target.value)} />
+    <div className="flex-1 flex items-center justify-center px-4 py-12">
+      <div className="glass p-8 md:p-12 rounded-3xl w-full max-w-md shadow-2xl border border-slate-700/50">
+        <h2 className="text-3xl font-black mb-8 text-center text-white">회원가입</h2>
+        
+        <form onSubmit={onSignup} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">이메일</label>
+            <input 
+              type="email"
+              value={email} 
+              onChange={e => setEmail(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="이메일을 입력하세요"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">비밀번호</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="12자 이상 입력하세요"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">비밀번호 확인</label>
+            <input 
+              type="password" 
+              value={confirm} 
+              onChange={e => setConfirm(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="비밀번호를 다시 입력하세요"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">지역 코드</label>
+              <input 
+                type="text"
+                value={region} 
+                onChange={e => setRegion(e.target.value)}
+                className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+                placeholder="선택사항"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">추천 코드</label>
+              <input 
+                type="text"
+                value={ref} 
+                onChange={e => setRef(e.target.value)}
+                className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+                placeholder="선택사항"
+              />
+            </div>
+          </div>
+
+          {error && (
+            <p className="text-red-400 text-sm text-center font-bold bg-red-500/10 py-3 rounded-xl border border-red-500/20">
+              {error}
+            </p>
+          )}
+
+          <button 
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black text-lg rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]"
+          >
+            {loading ? "회원가입 중..." : "회원가입"}
+          </button>
+        </form>
+
+        <div className="mt-10 pt-6 border-t border-slate-800 text-center">
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-bold uppercase tracking-widest">
+            <a href="/auth/login" className="text-slate-500 hover:text-white transition">
+              로그인
+            </a>
+            <a href="/" className="text-slate-500 hover:text-white transition">
+              홈으로
+            </a>
+          </div>
         </div>
       </div>
-      <button disabled={loading} onClick={onSignup} className="w-full mt-4 px-4 py-2 rounded bg-violet-600 text-white">
-        {loading ? "회원가입 중..." : "회원가입"}
-      </button>
-      {msg && <p className="text-sm mt-3">{msg}</p>}
     </div>
   );
 }

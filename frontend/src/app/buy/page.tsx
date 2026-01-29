@@ -4,26 +4,47 @@ import { createPortal } from "react-dom";
 import { createDepositRequest } from "@/lib/api";
 import QRCode from "react-qr-code";
 
-type Pack = { snp: number; usdt: number };
-
-const PACKS: Pack[] = [
-  { snp: 500, usdt: 100 },
-  { snp: 1000, usdt: 200 },
-  { snp: 2500, usdt: 500 },
-  { snp: 5000, usdt: 1000 },
-  { snp: 25000, usdt: 5000 },
-  { snp: 50000, usdt: 10000 },
-];
+const JOYCOIN_PRICE_USD = 0.20;
 
 export default function BuyPage() {
-  const [cart, setCart] = useState<Pack[]>([]);
+  const [amount, setAmount] = useState(0);
+  const [showPayment, setShowPayment] = useState(false);
   const [checkout, setCheckout] = useState<null | {
     assigned_address: string;
     expected_amount: string;
     reference_code: string;
   }>(null);
-  const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const token = typeof window !== "undefined" ? localStorage.getItem("access") || "" : "";
+
+  const handleIncrement = (val: number) => setAmount(prev => prev + val);
+  const handleReset = (val: number) => setAmount(val);
+
+  const usdtAmount = (amount * JOYCOIN_PRICE_USD).toFixed(2);
+
+  const handleBuy = async () => {
+    if (amount <= 0) return;
+    if (!token) {
+      alert("로그인이 필요합니다");
+      window.location.href = "/auth/login";
+      return;
+    }
+    try {
+      setShowPayment(true);
+      setIsLoading(true);
+      const resp = await createDepositRequest({
+        token,
+        chain: "TRON",
+        amount_usdt: parseFloat(usdtAmount),
+      });
+      setCheckout(resp);
+      setIsLoading(false);
+    } catch (e: any) {
+      setIsLoading(false);
+      setShowPayment(false);
+      alert("입금요청 실패: " + e.message);
+    }
+  };
 
   function Modal(props: { open: boolean; onClose: () => void; children: React.ReactNode }) {
     const { open, onClose, children } = props;
@@ -31,154 +52,166 @@ export default function BuyPage() {
     useEffect(() => setMounted(true), []);
     if (!open || !mounted) return null;
     const content = (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-        <div className="relative z-[10000] w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" role="dialog" aria-modal="true">
-          {children}
-        </div>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+        <div className="relative z-[10000] w-full max-w-md">{children}</div>
       </div>
     );
     return createPortal(content, document.body);
   }
 
-  useEffect(() => {
-    const saved = localStorage.getItem("cart");
-    if (saved) setCart(JSON.parse(saved));
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
-  }, [cart]);
-
-  const add = (p: Pack) => setCart([...cart, p]);
-  const clear = () => setCart([]);
-  const total = cart.reduce((s, p) => s + p.usdt, 0);
-
-  const token = typeof window !== "undefined" ? localStorage.getItem("access") || "" : "";
-
-  const onCheckout = async () => {
-    if (!token) {
-      alert("로그인이 필요합니다");
-      return;
-    }
-    try {
-      setShowModal(true);
-      setIsLoading(true);
-      const resp = await createDepositRequest({
-        token,
-        chain: "TRON", // 또는 ETH 선택 기능 추후 추가
-        amount_usdt: total,
-      });
-      setCheckout(resp);
-      setIsLoading(false);
-    } catch (e: any) {
-      setIsLoading(false);
-      setShowModal(false);
-      alert("입금요청 실패: " + e.message);
-    }
-  };
+  if (showPayment) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Modal open={showPayment} onClose={() => (!isLoading ? setShowPayment(false) : () => {})}>
+          <div className="glass p-8 rounded-3xl w-full text-center space-y-6">
+            {isLoading || !checkout ? (
+              <div className="py-6 text-center">
+                <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                <div className="text-sm text-slate-400">입금 요청 중...</div>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-2xl font-black text-white">입금 확인</h2>
+                <div className="bg-slate-900 p-4 rounded-2xl mx-auto w-48 h-48 flex items-center justify-center relative shadow-inner border border-slate-800">
+                  <QRCode 
+                    value={`USDT Payment\nAddr:${checkout.assigned_address}\nAmt:${checkout.expected_amount}`} 
+                    size={180}
+                    className="w-full h-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-slate-400 text-sm font-medium">USDT (TRC20)를 이 주소로 전송하세요</p>
+                  <p className="text-4xl font-black text-blue-500">{checkout.expected_amount} <span className="text-lg">USDT</span></p>
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 break-all font-mono text-xs text-blue-400 select-all">
+                    {checkout.assigned_address}
+                  </div>
+                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 break-all font-mono text-xs text-slate-400">
+                    참조코드: {checkout.reference_code}
+                  </div>
+                </div>
+                <div className="pt-4 space-y-3">
+                  <button 
+                    onClick={() => setShowPayment(false)}
+                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black rounded-xl transition-all shadow-lg shadow-green-500/20 active:scale-95"
+                  >
+                    확인했습니다
+                  </button>
+                  <button 
+                    onClick={() => setShowPayment(false)}
+                    className="w-full py-4 bg-slate-800 text-slate-400 font-bold rounded-xl transition hover:text-white"
+                  >
+                    취소
+                  </button>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl">
+                  <p className="text-[10px] text-blue-400 font-bold uppercase leading-relaxed">
+                    관리자가 입금을 확인하면 상태가 "입금완료"로 변경됩니다. 
+                    마이페이지에서 확인하실 수 있습니다.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">구매하기</h2>
-
-      <div className="rounded-xl border bg-white p-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-5 rounded bg-violet-500"></div>
-          <span className="font-semibold">지갑 앱 설치(예시)</span>
-          <div className="ml-auto text-sm text-slate-500">iOS / Android</div>
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-white p-4 mb-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">장바구니</h3>
-          <button onClick={clear} className="text-sm text-slate-500 hover:underline">
-            비우기
-          </button>
+    <div className="flex-1 flex flex-col items-center py-12 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="w-full max-w-3xl">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+          <div>
+            <h2 className="text-5xl font-black mb-3 italic tracking-tighter text-white">조이코인 구매</h2>
+            <p className="text-slate-500 font-medium">고정 환율: <span className="text-white">1 JOY = $0.20 USDT</span></p>
+          </div>
+          <div className="text-right glass px-8 py-4 rounded-2xl border border-slate-800">
+            <p className="text-xs text-slate-500 uppercase font-black tracking-widest mb-1">소계 (JOY)</p>
+            <p className="text-6xl font-black text-blue-500 tracking-tighter">{amount.toLocaleString()}</p>
+          </div>
         </div>
 
-        {cart.length === 0 ? (
-          <p className="text-sm text-slate-500">장바구니가 비어 있어요</p>
-        ) : (
-          <div className="mt-2 space-y-1">
-            {cart.map((p, i) => (
-              <div key={i} className="text-sm flex justify-between">
-                <span>{p.snp} SNP</span>
-                <span>{p.usdt.toLocaleString()} USDT</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-10">
+            <div className="space-y-4">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                시작 수량 선택
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[1000, 5000, 10000].map(v => (
+                  <button 
+                    key={v}
+                    onClick={() => handleReset(v)}
+                    className={`py-4 rounded-2xl font-black transition-all border-2 ${
+                      amount === v 
+                        ? 'bg-blue-600 border-blue-400 text-white shadow-xl shadow-blue-600/20' 
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    {v.toLocaleString()}
+                  </button>
+                ))}
               </div>
-            ))}
-            <div className="mt-2 pt-2 border-t flex justify-between font-semibold">
-              <span>합계</span>
-              <span>{total.toLocaleString()} USDT</span>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                수량 추가
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[1000, 5000, 10000].map(v => (
+                  <button 
+                    key={v}
+                    onClick={() => handleIncrement(v)}
+                    className="py-4 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border-2 border-indigo-500/20 rounded-2xl font-black transition-all active:scale-95"
+                  >
+                    +{v.toLocaleString()}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="mt-4">
-          <button
-            className="px-4 py-2 rounded-full bg-fuchsia-600 text-white disabled:opacity-40"
-            disabled={cart.length === 0}
-            onClick={onCheckout}
-          >
-            구매하기
-          </button>
+          <div className="glass p-10 rounded-[2.5rem] flex flex-col justify-between border border-slate-800 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+              </svg>
+            </div>
+            
+            <div className="space-y-6 relative">
+              <h3 className="text-lg font-black italic text-slate-400 uppercase tracking-widest">주문 요약</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-slate-500 font-bold border-b border-slate-800 pb-4">
+                  <span>수량</span>
+                  <span className="text-white font-black">{amount.toLocaleString()} JOY</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-500 font-bold border-b border-slate-800 pb-4">
+                  <span>JOY당 가격</span>
+                  <span className="text-white font-black">$0.20 USDT</span>
+                </div>
+                <div className="flex justify-between items-end pt-4">
+                  <span className="text-slate-300 font-black uppercase tracking-widest text-sm">총액</span>
+                  <div className="text-right">
+                    <span className="text-4xl font-black text-blue-500">{usdtAmount}</span>
+                    <span className="text-lg font-black text-blue-600 ml-2">USDT</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleBuy}
+              disabled={amount <= 0}
+              className="mt-12 w-full py-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:grayscale text-white font-black text-2xl rounded-3xl shadow-2xl shadow-blue-600/30 transition-all active:scale-[0.98] uppercase tracking-tighter italic"
+            >
+              결제 진행하기
+            </button>
+          </div>
         </div>
-      </div> {/* ←← 여기 닫는 태그 추가! (장바구니 카드 종료) */}
-
-      <Modal open={showModal} onClose={() => (!isLoading ? setShowModal(false) : null)}>
-        {isLoading || !checkout ? (
-          <div className="py-6 text-center">
-            <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-fuchsia-600" />
-            <div className="text-sm text-slate-600">입금 요청 중...</div>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold">입금 정보</h3>
-              <button
-                className="rounded-full px-3 py-1 text-sm text-slate-600 hover:bg-slate-100"
-                onClick={() => setShowModal(false)}
-              >
-                닫기
-              </button>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="font-mono break-all">주소: {checkout.assigned_address}</div>
-              <div className="font-mono">금액: {checkout.expected_amount} USDT</div>
-              <div className="font-mono">참조코드: {checkout.reference_code}</div>
-            </div>
-            <div className="mt-4 flex justify-center">
-              <QRCode value={`USDT Payment\nAddr:${checkout.assigned_address}\nAmt:${checkout.expected_amount}`} size={180} />
-            </div>
-            <div className="mt-5">
-              <button
-                className="w-full rounded-full bg-fuchsia-600 px-4 py-2 text-white"
-                onClick={() => setShowModal(false)}
-              >
-                확인
-              </button>
-            </div>
-          </>
-        )}
-      </Modal>
-
-      <div className="grid md:grid-cols-3 gap-4 mt-6">
-        {PACKS.map((p) => (
-          <div key={p.snp} className="rounded-xl border bg-white p-4">
-            <div className="h-40 rounded-lg bg-gradient-to-br from-slate-50 to-violet-50 mb-4" />
-            <div className="flex items-center justify-between">
-              <span className="font-semibold">{p.snp} SNP</span>
-              <button
-                className="px-3 py-1 rounded-full bg-fuchsia-500 text-white text-sm"
-                onClick={() => setCart([...cart, p])}
-              >
-                추가
-              </button>
-            </div>
-            <div className="mt-2 text-sm text-slate-600">🔴 {p.usdt.toLocaleString()} USDT</div>
-          </div>
-        ))}
       </div>
     </div>
   );
