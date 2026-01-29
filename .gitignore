@@ -85,3 +85,9 @@ jspm_packages/
 
 # TernJS port file
 .tern-port
+
+# Backend / Python
+backend/.venv
+backend/__pycache__/
+*.pyc
+__pycache__/
