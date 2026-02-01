@@ -1,23 +1,110 @@
+# backend/app/models/user.py
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, Boolean, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
+import secrets
+import string
+
+
+def generate_referral_code() -> str:
+    """
+    추천인 코드 자동 생성
+    형식: JOY + 5자리 영숫자 대문자
+    예시: JOY7K2M9, JOYA3X5T
+    """
+    chars = string.ascii_uppercase + string.digits
+    random_part = ''.join(secrets.choice(chars) for _ in range(5))
+    return f"JOY{random_part}"
 
 
 class User(Base):
     __tablename__ = "users"
 
+    # 기본 정보
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    email: Mapped[str] = mapped_column(
-        String(255), unique=True, index=True, nullable=False
-    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    region_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    referrer_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    role: Mapped[str] = mapped_column(String(16), default="user")
-    is_email_verified: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )  # ★ 추가
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+    username: Mapped[str] = mapped_column(String(100), nullable=False)
+    
+    # 추천인 시스템
+    referral_code: Mapped[str] = mapped_column(
+        String(20), 
+        unique=True, 
+        index=True, 
+        nullable=False,
+        default=generate_referral_code  # 자동 생성
     )
+    referred_by: Mapped[int | None] = mapped_column(
+        Integer, 
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    
+    # 센터 (선택사항)
+    center_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("centers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    
+    # 권한 및 상태
+    role: Mapped[str] = mapped_column(String(16), default="user", nullable=False)
+    is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_banned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # 타임스탬프
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        server_default=func.now(),
+        nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False
+    )
+    
+    # Relationships
+    # 나를 추천한 사람 (역참조)
+    referrer: Mapped["User"] = relationship(
+        "User",
+        remote_side=[id],
+        foreign_keys=[referred_by],
+        backref="referred_users"  # 역: 내가 추천한 사람들 목록
+    )
+    
+    # 내 센터
+    center: Mapped["Center"] = relationship("Center", back_populates="users")
+    
+    # 내 구매 내역
+    purchases: Mapped[list["Purchase"]] = relationship("Purchase", back_populates="user")
+    
+    # 내 입금 요청
+    deposit_requests: Mapped[list["DepositRequest"]] = relationship(
+        "DepositRequest", 
+        back_populates="user"
+    )
+    
+    # 내 포인트 내역
+    point_history: Mapped[list["Point"]] = relationship("Point", back_populates="user")
+    
+    # 추천인으로서의 내역 (내가 추천한 사람들)
+    referrals_as_referrer: Mapped[list["Referral"]] = relationship(
+        "Referral",
+        foreign_keys="[Referral.referrer_id]",
+        back_populates="referrer"
+    )
+    
+    # 추천받은 사람으로서의 내역
+    referrals_as_referred: Mapped[list["Referral"]] = relationship(
+        "Referral",
+        foreign_keys="[Referral.referred_id]",
+        back_populates="referred"
+    )
+
+    def __repr__(self):
+        return f"<User(id={self.id}, email={self.email}, referral_code={self.referral_code})>"

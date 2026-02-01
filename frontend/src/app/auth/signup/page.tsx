@@ -4,10 +4,11 @@ import { signup } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
-  const [email, setEmail] = useState(""); 
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [region, setRegion] = useState("");
+  const [username, setUsername] = useState("");
+  const [centerId, setCenterId] = useState("");
   const [ref, setRef] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,25 +17,35 @@ export default function SignupPage() {
   const onSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
-    if (password.length < 12) { 
-      setError("비밀번호는 12자 이상이어야 합니다."); 
-      return; 
+
+    if (password.length < 12) {
+      setError("비밀번호는 12자 이상이어야 합니다.");
+      return;
     }
-    if (password !== confirm) { 
-      setError("비밀번호가 일치하지 않습니다."); 
-      return; 
+    if (password !== confirm) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
     }
-    
+    if (!username.trim()) {
+      setError("이름(닉네임)을 입력해 주세요.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await signup(email, password, region || undefined, ref || undefined);
-      localStorage.setItem("access", res.access);
-      router.push("/deposits");
+      await signup({
+        email,
+        password,
+        username: username.trim(),
+        referral_code: ref.trim() || undefined,
+        center_id: centerId ? Number(centerId) : undefined,
+      });
+      // 백엔드는 JWT를 주지 않음 → 이메일 인증 후 로그인 필요
+      router.push("/auth/login?registered=1");
     } catch (e: any) {
       setError(e.message || "회원가입 실패");
-    } finally { 
-      setLoading(false); 
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -80,25 +91,38 @@ export default function SignupPage() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">이름 / 닉네임</label>
+            <input
+              type="text"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="2자 이상"
+              minLength={2}
+              required
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">지역 코드</label>
-              <input 
-                type="text"
-                value={region} 
-                onChange={e => setRegion(e.target.value)}
+              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">센터 ID</label>
+              <input
+                type="number"
+                min={1}
+                value={centerId}
+                onChange={e => setCenterId(e.target.value)}
                 className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
-                placeholder="선택사항"
+                placeholder="선택 (1,2,3…)"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">추천 코드</label>
-              <input 
+              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">추천인 코드</label>
+              <input
                 type="text"
-                value={ref} 
+                value={ref}
                 onChange={e => setRef(e.target.value)}
                 className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
-                placeholder="선택사항"
+                placeholder="선택 (JOY…)"
               />
             </div>
           </div>

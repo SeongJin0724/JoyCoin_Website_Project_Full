@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.models.user import User
+from app.models import User
 from app.core.config import settings
 
 

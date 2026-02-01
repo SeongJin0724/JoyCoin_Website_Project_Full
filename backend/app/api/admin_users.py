@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.auth import get_current_admin
-from app.models.user import User
+from app.models import User
 
 router = APIRouter(prefix="/admin/users", tags=["admin:users"])
 

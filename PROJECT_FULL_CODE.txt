@@ -1,0 +1,1969 @@
+================================================================================
+                    JOYCOIN WEBSITE PROJECT - FULL SOURCE CODE
+================================================================================
+프로젝트: JoyCoin Website (암호화폐 USDT 입금 → JOY 코인 구매 플랫폼)
+스택: FastAPI (Python) + Next.js (React/TypeScript) + PostgreSQL + Redis
+================================================================================
+
+================================================================================
+                              PROJECT STRUCTURE
+================================================================================
+JoyCoin_Website_Project_Full/
+├── backend/                    # FastAPI 백엔드
+│   └── app/
+│       ├── main.py            # FastAPI 앱 진입점
+│       ├── core/              # 핵심 설정/유틸
+│       │   ├── config.py      # 환경변수 설정
+│       │   ├── db.py          # SQLAlchemy DB 연결
+│       │   ├── security.py    # 비밀번호 해시, JWT
+│       │   ├── auth.py        # 인증 미들웨어
+│       │   ├── email.py       # 이메일 발송 (개발환경: 로그)
+│       │   └── verify.py      # 이메일 인증 토큰 (Redis)
+│       ├── models/            # SQLAlchemy 모델
+│       │   ├── user.py        # 사용자 모델
+│       │   └── deposit_request.py  # 입금 요청 모델
+│       ├── schemas/           # Pydantic 스키마
+│       │   ├── auth.py        # 인증 관련 스키마
+│       │   └── deposits.py    # 입금 관련 스키마
+│       ├── services/          # 비즈니스 로직
+│       │   └── deposits.py    # 입금 요청 처리
+│       └── api/               # API 라우터
+│           ├── auth.py        # 회원가입/로그인/이메일인증
+│           ├── deposits.py    # 사용자 입금 요청
+│           ├── admin_deposits.py  # 관리자 입금 승인/거절
+│           └── admin_users.py # 관리자 사용자 관리
+├── frontend/                   # Next.js 프론트엔드
+│   └── src/
+│       ├── app/
+│       │   ├── layout.tsx     # 공통 레이아웃
+│       │   ├── page.tsx       # 메인 페이지
+│       │   ├── globals.css    # 전역 스타일
+│       │   ├── auth/
+│       │   │   ├── login/page.tsx   # 로그인
+│       │   │   └── signup/page.tsx  # 회원가입
+│       │   ├── buy/page.tsx   # 코인 구매 페이지
+│       │   ├── deposits/page.tsx    # 마이페이지 (입금 내역)
+│       │   └── guide/purchase/page.tsx  # 구매 가이드
+│       └── lib/
+│           └── api.ts         # API 호출 함수들
+├── deploy/                     # Docker 배포 설정
+│   ├── docker-compose.dev.yml # 개발환경 Docker Compose
+│   ├── Dockerfile.backend     # 백엔드 Dockerfile
+│   ├── Dockerfile.frontend    # 프론트엔드 Dockerfile
+│   └── env/
+│       └── .env.sample        # 환경변수 샘플
+└── README.md
+
+
+================================================================================
+                              README.md
+================================================================================
+--- README.md ---
+
+# JoyCoin_Website_Project — Frontend/Backend Split (Dev)
+
+이 저장소는 프론트엔드(Next.js)와 백엔드(FastAPI)를 Docker로 동시에 실행하는 개발 환경입니다.
+
+## 빠른 시작 (비개발자용)
+1) Docker Desktop 실행
+2) .env 파일 준비
+   ```bash
+   cd deploy
+   mkdir -p env
+   # 샘플 복사
+   # Windows PowerShell
+   copy env\.env.sample .env
+   # macOS/Linux
+   # cp env/.env.sample .env
+   ```
+3) 실행
+   ```bash
+   docker compose -f docker-compose.dev.yml up --build
+   ```
+4) 접속
+   - 프론트: http://localhost:3000
+   - 백엔드: http://localhost:8000
+   - 헬스체크: http://localhost:8000/healthz
+
+## 구조
+- frontend/  → Next.js (TypeScript + Tailwind)
+- backend/   → FastAPI (CORS 허용, /healthz)
+- deploy/    → Dockerfile 2개 + docker-compose.dev.yml
+- deploy/env/.env.sample → 환경 변수 샘플
+
+## 다음 단계
+- 프론트: 장바구니/체크아웃 모달 고도화, 회원 UI 다듬기
+- 백엔드: 인증/DB(포스트그레스) 추가 후 API 연동
+
+
+================================================================================
+                              BACKEND CODE
+================================================================================
+
+--- backend/app/main.py ---
+# backend/app/main.py
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.core.db import Base, engine, get_db
+from app.api.auth import router as auth_router
+from app.api.deposits import router as deposits_router
+from app.api.admin_deposits import router as admin_deposits_router
+
+# ✅ 추가 import
+from sqlalchemy.orm import Session
+from app.core.config import settings
+from app.core.security import hash_password
+from app.models.user import User
+
+from app.api.admin_users import router as admin_users_router
+
+app = FastAPI(title="JoyCoin Website API")
+
+origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],     # ✅ 모든 메서드 허용
+    allow_headers=["*"],     # ✅ 모든 헤더 허용
+)
+
+static_dir = "app/static"
+os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+    seed_super_admin()
+
+
+def seed_super_admin():
+    """환경변수 기반 슈퍼관리자 1명 자동 생성"""
+    if not settings.SUPER_ADMIN_EMAIL or not settings.SUPER_ADMIN_PASSWORD:
+        return
+    db: Session
+    with next(get_db()) as db:
+        exists = db.query(User).filter(User.email == settings.SUPER_ADMIN_EMAIL).first()
+        if exists:
+            # 이미 있으면 role만 보정
+            if exists.role != "admin":
+                exists.role = "admin"
+                db.commit()
+            return
+        # 없으면 새로 생성
+        admin = User(
+            email=settings.SUPER_ADMIN_EMAIL,
+            password_hash=hash_password(settings.SUPER_ADMIN_PASSWORD),
+            role="admin",
+            is_email_verified=True,  # 관리자는 기본 인증 처리
+        )
+        db.add(admin)
+        db.commit()
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+
+app.include_router(auth_router)
+app.include_router(deposits_router)
+app.include_router(admin_deposits_router)
+app.include_router(admin_users_router)
+
+
+--- backend/app/core/config.py ---
+# backend/app/core/config.py
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    APP_ENV: str = "dev"
+    DB_URL: str
+    JWT_SECRET: str
+    JWT_EXPIRE_MIN: int = 20
+    CORS_ORIGINS: str = "http://localhost:3000"
+
+    # ✅ 누락된 환경변수들 정의
+    USDT_ADMIN_ADDRESS: str | None = None
+
+    # 이미 쓰고 있는 슈퍼관리자
+    SUPER_ADMIN_EMAIL: str | None = None
+    SUPER_ADMIN_PASSWORD: str | None = None
+
+
+settings = Settings()
+
+
+--- backend/app/core/db.py ---
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
+DB_URL = os.getenv("DB_URL", "postgresql+psycopg://app:app@db:5432/app")
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+engine = create_engine(DB_URL, echo=False, future=True)
+SessionLocal = sessionmaker(
+    bind=engine, autoflush=False, autocommit=False, future=True)
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+--- backend/app/core/security.py ---
+import os
+from passlib.hash import argon2
+from datetime import datetime, timedelta
+from jose import jwt
+
+JWT_SECRET = os.getenv("JWT_SECRET", "change_me")
+JWT_EXPIRE_MIN = int(os.getenv("JWT_EXPIRE_MIN", "20"))
+ALGO = "HS256"
+
+
+def hash_password(plain: str) -> str:
+    return argon2.hash(plain)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    try:
+        return argon2.verify(plain, hashed)
+    except Exception:
+        return False
+
+
+def create_access_token(*, user_id: int, minutes: int, secret: str) -> str:
+    now = datetime.utcnow()
+    payload = {
+        "sub": str(user_id),  # ✅ 항상 문자열 형태의 정수 id
+        "iat": now,
+        "exp": now + timedelta(minutes=minutes),
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+--- backend/app/core/auth.py ---
+# backend/app/core/auth.py
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from sqlalchemy.orm import Session
+
+from app.core.db import get_db
+from app.models.user import User
+from app.core.config import settings
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+        sub = payload.get("sub")
+        if sub is None:
+            raise credentials_exception
+        user_id = int(sub)  # ✅ 문자열을 정수로 변환
+    except (JWTError, ValueError):
+        raise credentials_exception
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+def get_current_admin(user=Depends(get_current_user)):
+    if getattr(user, "role", None) != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
+    return user
+
+
+--- backend/app/core/email.py ---
+import os, logging
+
+SENDER = os.getenv("EMAIL_SENDER", "noreply@joycoin.local")
+logger = logging.getLogger("email")
+
+
+def send_email(to: str, subject: str, body: str):
+    # 개발환경: 실제 발송 대신 로그로 대체
+    logger.warning("[DEV-EMAIL] To=%s | Subject=%s\n%s", to, subject, body)
+
+
+--- backend/app/core/verify.py ---
+import os, secrets
+import redis
+
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:8000")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+
+VERIFY_PREFIX = "verify_email:"
+TTL_SECONDS = 15 * 60  # 15분
+
+
+def generate_email_verify_link(email: str) -> str:
+    token = secrets.token_urlsafe(32)
+    r.setex(f"{VERIFY_PREFIX}{token}", TTL_SECONDS, email)
+    return f"{BACKEND_PUBLIC_URL}/auth/verify-email?token={token}"
+
+
+def consume_email_token(token: str) -> str | None:
+    key = f"{VERIFY_PREFIX}{token}"
+    email = r.get(key)
+    if not email:
+        return None
+    r.delete(key)
+    return email
+
+
+--- backend/app/models/user.py ---
+from datetime import datetime
+from sqlalchemy import String, Integer, DateTime, Boolean, func
+from sqlalchemy.orm import Mapped, mapped_column
+from app.core.db import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, index=True, nullable=False
+    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    region_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    referrer_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    role: Mapped[str] = mapped_column(String(16), default="user")
+    is_email_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # ★ 추가
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+--- backend/app/models/deposit_request.py ---
+# backend/app/models/deposit_request.py
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+
+# 프로젝트의 Base 위치에 맞춰 import 하세요.
+# 예) app.core.db 에 Base 가 있으면 아래 줄로, 다른 곳이면 경로만 바꾸세요.
+from app.core.db import Base
+
+
+class DepositRequest(Base):
+    __tablename__ = "deposit_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    chain = Column(String(10), nullable=False)  # "TRON" | "ETH"
+    assigned_address = Column(String(128), nullable=False)  # 관리자 USDT 입금 주소
+    expected_amount = Column(String(50), nullable=False)  # 문자열로 저장(간단 버전)
+    reference_code = Column(String(32), nullable=False, index=True)
+
+    status = Column(String(32), nullable=False, index=True, default="pending")
+    tx_hash = Column(String(128), nullable=True)
+    from_address = Column(String(128), nullable=True)
+    detected_amount = Column(String(50), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    confirmed_at = Column(DateTime, nullable=True)
+
+    # User 모델이 app.models.user.User 에 있다면 아래 관계를 활성화 가능
+    # user = relationship("User", backref="deposit_requests")
+
+
+--- backend/app/schemas/auth.py ---
+from pydantic import BaseModel, EmailStr, Field
+
+
+class SignupIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=12)
+    region_code: str | None = None
+    referrer_code: str | None = None
+
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class Tokens(BaseModel):
+    access: str
+
+
+--- backend/app/schemas/deposits.py ---
+# backend/app/schemas/deposits.py
+from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Optional
+
+
+class DepositRequestIn(BaseModel):
+    chain: str = Field(..., pattern="^(TRON|ETH)$")
+    amount_usdt: float
+
+
+class DepositRequestOut(BaseModel):
+    id: int
+    user_id: int
+    chain: str
+    assigned_address: str
+    expected_amount: float
+    reference_code: str
+    status: str
+    detected_amount: Optional[float] = None
+    tx_hash: Optional[str] = None
+    from_address: Optional[str] = None
+    confirmed_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = dict(from_attributes=True)  # ✅ v2
+
+
+--- backend/app/services/deposits.py ---
+# backend/app/services/deposits.py
+import uuid
+from sqlalchemy.orm import Session
+from decimal import Decimal
+
+from app.models.user import User
+from app.models.deposit_request import DepositRequest  # 파일명 맞게
+from app.core.config import settings  # settings.USDT_ADMIN_ADDRESS, 등
+
+
+def create_deposit_request(db: Session, user: User, data):
+    if not settings.USDT_ADMIN_ADDRESS:
+        # 환경변수 누락 시 명확한 에러
+        raise ValueError("USDT_ADMIN_ADDRESS is not configured")
+
+    # 고유 소수점 지문(간단 버전)
+    amt = Decimal(str(data.amount_usdt))
+    fingerprint = Decimal("0.000001")
+    expected_amount = (amt + fingerprint).quantize(Decimal("0.000001"))
+
+    req = DepositRequest(
+        user_id=user.id,
+        chain=data.chain,
+        expected_amount=str(expected_amount),
+        assigned_address=settings.USDT_ADMIN_ADDRESS,
+        reference_code=str(uuid.uuid4())[:8],
+        status="pending",
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return req
+
+
+def get_user_deposits(db: Session, user: User):
+    return (
+        db.query(DepositRequest)
+        .filter(DepositRequest.user_id == user.id)
+        .order_by(DepositRequest.id.desc())
+        .all()
+    )
+
+
+admin_addr = settings.USDT_ADMIN_ADDRESS
+if not admin_addr:
+    raise HTTPException(status_code=500, detail="USDT_ADMIN_ADDRESS is not configured")
+
+
+--- backend/app/api/auth.py ---
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from app.core.db import get_db
+from app.core.security import hash_password, verify_password, create_access_token
+from app.core.email import send_email
+from app.core.verify import generate_email_verify_link, consume_email_token
+from app.schemas.auth import SignupIn, LoginIn, Tokens
+from app.models.user import User
+from app.core.config import settings
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/signup", response_model=Tokens)
+def signup(data: SignupIn, db: Session = Depends(get_db)):
+    exists = db.query(User).filter(User.email == data.email).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
+    user = User(
+        email=data.email,
+        password_hash=hash_password(data.password),
+        region_code=data.region_code,
+        referrer_code=data.referrer_code,
+        role="user",
+        is_email_verified=False,  # 이메일 인증 전
+    )
+    db.add(user)
+    db.commit()
+
+    # 인증 링크 생성 + '로그'로 발송
+    link = generate_email_verify_link(user.email)
+    send_email(
+        to=user.email,
+        subject="[JoyCoin] 이메일 인증을 완료해 주세요",
+        body=f"아래 링크를 클릭하여 이메일 인증을 완료하세요(15분 유효)\n\n{link}",
+    )
+
+    # 프론트 호환을 위해 토큰은 발급(단 로그인은 인증 전 403)
+    return Tokens(access=create_access_token(sub=user.email))
+
+
+@router.post("/login", response_model=Tokens)
+def login(data: LoginIn, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
+    if not user or not verify_password(data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="이메일 또는 비밀번호가 올바르지 않습니다.",
+        )
+    if not user.is_email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="이메일 인증이 필요합니다."
+        )
+
+    # ✅ 여기서 토큰 발급
+    access = create_access_token(
+        user_id=user.id,  # 정수형 id 사용
+        minutes=settings.JWT_EXPIRE_MIN,
+        secret=settings.JWT_SECRET,
+    )
+    return Tokens(access=access)
+
+
+@router.get("/verify-email")
+def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
+    email = consume_email_token(token)
+    if not email:
+        raise HTTPException(
+            status_code=400, detail="토큰이 유효하지 않거나 만료되었습니다."
+        )
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    if not user.is_email_verified:
+        user.is_email_verified = True
+        db.add(user)
+        db.commit()
+    return {"message": "이메일 인증이 완료되었습니다. 이제 로그인할 수 있습니다."}
+
+
+@router.post("/request-email-verify")
+def request_email_verify(email: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    if user.is_email_verified:
+        return {"message": "이미 이메일 인증이 완료되었습니다."}
+    link = generate_email_verify_link(user.email)
+    send_email(
+        to=user.email,
+        subject="[JoyCoin] 이메일 인증 링크 재발송",
+        body=f"아래 링크를 클릭하여 이메일 인증을 완료하세요(15분 유효)\n\n{link}",
+    )
+    return {"message": "인증 메일을 재발송했습니다."}
+
+
+--- backend/app/api/deposits.py ---
+# backend/app/api/deposits.py
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+# ✅ 실제 프로젝트 구조에 맞게 수정
+from app.core.db import get_db
+from app.core.auth import get_current_user
+from app.models.user import User
+from app.models.deposit_request import DepositRequest  # 모델 파일명이 다르면 맞게 수정
+
+from app.schemas.deposits import DepositRequestIn, DepositRequestOut
+from app.services.deposits import create_deposit_request, get_user_deposits
+
+router = APIRouter(prefix="/deposits", tags=["deposits"])
+
+
+@router.post("/request", response_model=DepositRequestOut)
+def request_deposit(
+    data: DepositRequestIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return create_deposit_request(db, user, data)
+
+
+@router.get("/my")
+def my_deposits(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    items = get_user_deposits(db, user)
+    return {"items": items}
+
+
+--- backend/app/api/admin_deposits.py ---
+# backend/app/api/admin_deposits.py
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional, List
+
+from app.core.db import get_db
+from app.core.auth import get_current_admin
+from app.models.deposit_request import DepositRequest
+from app.schemas.deposits import DepositRequestOut
+
+router = APIRouter(prefix="/admin/deposits", tags=["admin:deposits"])
+
+
+# ---------- In Schemas ----------
+class ConfirmIn(BaseModel):
+    tx_hash: Optional[str] = None
+    from_address: Optional[str] = None
+    detected_amount: Optional[float] = None  # 없으면 expected_amount로 대체
+
+
+class RejectIn(BaseModel):
+    reason: Optional[str] = None
+
+
+class MarkCreditedIn(BaseModel):
+    joy_tx_hash: Optional[str] = None  # 컬럼 없으면 저장은 생략(주석 참고)
+
+
+# ---------- List ----------
+@router.get("", response_model=List[DepositRequestOut])
+def list_deposits(
+    status: Optional[str] = Query(
+        None, description="pending|confirmed|credited|rejected|review_required"
+    ),
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    q = db.query(DepositRequest).order_by(DepositRequest.created_at.desc())
+    if status:
+        q = q.filter(DepositRequest.status == status)
+    return q.limit(200).all()
+
+
+# ---------- Confirm ----------
+@router.post("/{deposit_id}/confirm", response_model=DepositRequestOut)
+def confirm_deposit(
+    deposit_id: int,
+    payload: ConfirmIn,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    dr = db.query(DepositRequest).filter(DepositRequest.id == deposit_id).first()
+    if not dr:
+        raise HTTPException(404, "deposit_request not found")
+
+    # idempotent
+    if dr.status in ("confirmed", "credited", "rejected"):
+        return dr
+
+    if dr.status not in ("pending", "review_required"):
+        raise HTTPException(400, f"invalid state: {dr.status}")
+
+    # 실제 값이 오면 적용, 아니면 expected_amount로 대체
+    dr.tx_hash = payload.tx_hash or dr.tx_hash
+    dr.from_address = payload.from_address or dr.from_address
+    dr.detected_amount = (
+        payload.detected_amount
+        if payload.detected_amount is not None
+        else dr.expected_amount
+    )
+
+    dr.status = "confirmed"
+    dr.confirmed_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(dr)
+    return dr
+
+
+# ---------- Move to Review Queue ----------
+@router.post("/{deposit_id}/review", response_model=DepositRequestOut)
+def move_to_review_queue(
+    deposit_id: int,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    dr = db.query(DepositRequest).filter(DepositRequest.id == deposit_id).first()
+    if not dr:
+        raise HTTPException(404, "deposit_request not found")
+
+    if dr.status == "review_required":
+        return dr
+
+    # 이미 최종상태면 리턴
+    if dr.status in ("credited", "rejected"):
+        return dr
+
+    dr.status = "review_required"
+    db.commit()
+    db.refresh(dr)
+    return dr
+
+
+# ---------- Mark Credited (JOY 송금 완료 표시) ----------
+@router.post("/{deposit_id}/mark-credited", response_model=DepositRequestOut)
+def mark_credited(
+    deposit_id: int,
+    payload: MarkCreditedIn | None = None,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    dr = db.query(DepositRequest).filter(DepositRequest.id == deposit_id).first()
+    if not dr:
+        raise HTTPException(404, "deposit_request not found")
+
+    if dr.status != "confirmed":
+        raise HTTPException(400, f"invalid state: {dr.status}")
+
+    # TODO: ourcoin_tx_hash 컬럼 만들면 여기에 payload.joy_tx_hash 저장 가능
+    dr.status = "credited"
+    db.commit()
+    db.refresh(dr)
+    return dr
+
+
+# ---------- Reject ----------
+@router.post("/{deposit_id}/reject", response_model=DepositRequestOut)
+def reject_deposit(
+    deposit_id: int,
+    payload: RejectIn | None = None,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    dr = db.query(DepositRequest).filter(DepositRequest.id == deposit_id).first()
+    if not dr:
+        raise HTTPException(404, "deposit_request not found")
+
+    if dr.status == "credited":
+        raise HTTPException(400, "already credited")
+
+    if dr.status == "rejected":
+        return dr
+
+    dr.status = "rejected"
+    db.commit()
+    db.refresh(dr)
+    return dr
+
+
+--- backend/app/api/admin_users.py ---
+# backend/app/api/admin_users.py
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.db import get_db
+from app.core.auth import get_current_admin
+from app.models.user import User
+
+router = APIRouter(prefix="/admin/users", tags=["admin:users"])
+
+
+@router.post("/{user_id}/promote")
+def promote_user_to_admin(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    user = db.query(User).get(user_id)
+    if not user:
+        raise HTTPException(404, "user not found")
+    if user.role == "admin":
+        return {"ok": True, "message": "already admin", "user_id": user.id}
+    user.role = "admin"
+    db.commit()
+    return {"ok": True, "message": "promoted", "user_id": user.id}
+
+
+@router.get("")
+def list_users(
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    admin=Depends(get_current_admin),
+):
+    qry = db.query(User)
+    if q:
+        qry = qry.filter(User.email.ilike(f"%{q}%"))
+    items = qry.order_by(User.created_at.desc()).limit(100).all()
+    return {
+        "items": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "role": u.role,
+                "is_email_verified": u.is_email_verified,
+                "created_at": u.created_at,
+            }
+            for u in items
+        ]
+    }
+
+
+--- backend/requirements.txt ---
+fastapi==0.111.1
+uvicorn[standard]==0.30.5
+jinja2==3.1.4
+python-multipart==0.0.9
+pydantic-settings==2.4.0
+httpx==0.27.2
+redis==5.0.7
+rq==1.16.2
+tenacity==8.5.0
+sqlalchemy>=2.0
+psycopg[binary]==3.2.1
+alembic==1.13.2
+passlib[argon2]==1.7.4
+python-jose[cryptography]==3.3.0
+email-validator==2.2.0
+redis>=5.0
+pydantic>=2.7
+pydantic-settings>=2.2
+python-jose[cryptography]>=3.3
+
+
+================================================================================
+                              FRONTEND CODE
+================================================================================
+
+--- frontend/package.json ---
+{
+  "name": "joycoin-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000 -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "qrcode.react": "^4.2.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-qr-code": "^2.0.18"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.30",
+    "@types/react": "18.2.79",
+    "autoprefixer": "10.4.19",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.5",
+    "postcss": "8.4.38",
+    "tailwindcss": "3.4.10",
+    "typescript": "5.4.5"
+  }
+}
+
+
+--- frontend/tailwind.config.js ---
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: { extend: {} },
+  plugins: [],
+};
+
+
+--- frontend/tsconfig.json ---
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
+
+--- frontend/src/app/layout.tsx ---
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "JOYCOIN",
+  description: "JoyCoin Website",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ko">
+      <head>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+      </head>
+      <body className="min-h-screen flex flex-col relative overflow-hidden">
+        <div className="liquid-bg">
+          <div className="liquid-drop"></div>
+        </div>
+
+        <div className="fixed top-0 left-0 right-0 z-[60] px-4 md:px-10 py-5 flex justify-between items-center pointer-events-none">
+          <div className="flex items-center space-x-4 pointer-events-auto">
+            <a
+              href="/"
+              className="text-2xl md:text-3xl font-black tracking-tighter text-blue-500 cursor-pointer drop-shadow-lg"
+            >
+              JOYCOIN
+            </a>
+          </div>
+
+          <div className="flex items-center space-x-4 pointer-events-auto">
+            <nav className="hidden lg:flex items-center space-x-8 text-base font-bold text-white/80 mr-4">
+              <a href="/deposits" className="hover:text-blue-400 transition-colors">마이페이지</a>
+              <a href="/buy" className="hover:text-blue-400 transition-colors">구매하기</a>
+            </nav>
+            <a
+              href="/auth/login"
+              className="bg-red-500/20 text-red-400 px-4 py-2 rounded-2xl border border-red-500/30 hover:bg-red-500/30 transition-all active:scale-95 font-bold text-sm"
+            >
+              로그인
+            </a>
+          </div>
+        </div>
+
+        <main className="flex-1 flex flex-col relative z-10 pt-20">
+          {children}
+        </main>
+
+        <footer className="py-10 text-center text-slate-600 text-[10px] font-bold uppercase tracking-[0.3em] z-10">
+          &copy; 2024 JOYCOIN GLOBAL FOUNDATION • SECURED BY BLOCKCHAIN
+        </footer>
+      </body>
+    </html>
+  );
+}
+
+
+--- frontend/src/app/page.tsx ---
+export default function Page() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center space-y-16 px-6 py-20 relative min-h-[calc(100vh-80px)]">
+      <div className="text-center group">
+        <h1 className="text-7xl md:text-[12rem] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 via-red-500 to-blue-500 transition-all duration-1000 group-hover:scale-105 select-none drop-shadow-2xl">
+          JOYCOIN
+        </h1>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-6 w-full max-w-2xl px-4">
+        <a
+          href="/auth/login"
+          className="flex-1 py-5 px-8 glass hover:bg-white/10 text-white font-black text-xl rounded-3xl transition-all transform hover:-translate-y-1 active:scale-95 border border-white/20 shadow-2xl text-center"
+        >
+          로그인
+        </a>
+        <a
+          href="/auth/signup"
+          className="flex-1 py-5 px-8 glass hover:bg-white/10 text-white font-black text-xl rounded-3xl transition-all transform hover:-translate-y-1 active:scale-95 border border-white/20 shadow-2xl text-center"
+        >
+          회원가입
+        </a>
+        <a
+          href="/buy"
+          className="flex-1 py-5 px-8 bg-gradient-to-br from-blue-500 to-indigo-700 hover:from-blue-400 hover:to-indigo-600 text-white font-black text-xl rounded-3xl shadow-2xl shadow-blue-500/40 transition-all transform hover:-translate-y-1 active:scale-95 text-center"
+        >
+          구매하기
+        </a>
+      </div>
+
+      <div className="absolute bottom-12 opacity-30 animate-bounce">
+        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+
+--- frontend/src/app/globals.css ---
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', sans-serif;
+  background-color: #030712;
+  color: #f8fafc;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* Liquid Glass Background Effect */
+.liquid-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  background: radial-gradient(circle at 20% 20%, #1e3a8a 0%, transparent 40%),
+              radial-gradient(circle at 80% 80%, #4c1d95 0%, transparent 40%),
+              radial-gradient(circle at 50% 50%, #030712 0%, #000 100%);
+  filter: blur(80px);
+}
+
+.liquid-drop {
+  position: absolute;
+  width: 40vw;
+  height: 40vw;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 20%, #ef4444 40%, #8b5cf6 60%, #3b82f6 80%, #10b981 100%);
+  opacity: 0.15;
+  filter: blur(100px);
+  animation: float 20s infinite alternate;
+}
+
+@keyframes float {
+  0% { transform: translate(-10%, -10%) scale(1); }
+  100% { transform: translate(10%, 10%) scale(1.2); }
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+@layer utilities {
+  .animate-in {
+    animation: fadeIn 0.5s ease-in;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.7s ease-in;
+  }
+
+  .slide-in-from-bottom-4 {
+    animation: slideInFromBottom 0.5s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+
+--- frontend/src/lib/api.ts ---
+// frontend/src/lib/api.ts
+const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
+// ✅ fetch wrapper
+type ApiOptions = { method?: string; headers?: Record<string, string>; body?: any };
+async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  const body: string | undefined =
+    options.body && typeof options.body !== "string"
+      ? JSON.stringify(options.body)
+      : options.body;
+
+  const res = await fetch(`${BASE}${path}`, {
+    method: options.method ?? "GET",
+    headers,
+    body,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText} ${text}`);
+  }
+
+  return res.json();
+}
+
+// ✅ 회원가입
+export async function signup(
+  email: string,
+  password: string,
+  region_code?: string,
+  referrer_code?: string
+) {
+  return api<{ access: string }>("/auth/signup", {
+    method: "POST",
+    body: { email, password, region_code, referrer_code },
+  });
+}
+
+// ✅ 로그인
+export async function login(email: string, password: string) {
+  return api<{ access: string }>("/auth/login", {
+    method: "POST",
+    body: { email, password },
+  });
+}
+
+// ✅ 입금요청 생성
+export async function createDepositRequest(params: {
+  token: string;
+  chain: "TRON" | "ETH";
+  amount_usdt: number;
+}) {
+  return api<{
+    id: number;
+    chain: string;
+    assigned_address: string;
+    expected_amount: string;
+    reference_code: string;
+    status: string;
+  }>("/deposits/request", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${params.token}` },
+    body: { chain: params.chain, amount_usdt: params.amount_usdt },
+  });
+}
+
+// ✅ 내 입금내역
+export async function getMyDeposits(token: string) {
+  return api<{ items: Array<any> }>("/deposits/my", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+
+--- frontend/src/app/auth/login/page.tsx ---
+"use client";
+import { useState } from "react";
+import { login } from "@/lib/api";
+import { useRouter } from "next/navigation";
+
+export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const onLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await login(email, password);
+      localStorage.setItem("access", res.access);
+      router.push("/deposits");
+    } catch (e: any) {
+      setError(e.message || "로그인 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center px-4 py-12">
+      <div className="glass p-8 md:p-12 rounded-3xl w-full max-w-md shadow-2xl border border-slate-700/50">
+        <h2 className="text-3xl font-black mb-8 text-center text-white">로그인</h2>
+
+        <form onSubmit={onLogin} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">이메일</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="이메일을 입력하세요"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">비밀번호</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+
+          {error && (
+            <p className="text-red-400 text-sm text-center font-bold bg-red-500/10 py-3 rounded-xl border border-red-500/20">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black text-lg rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]"
+          >
+            {loading ? "로그인 중..." : "로그인"}
+          </button>
+        </form>
+
+        <div className="mt-10 pt-6 border-t border-slate-800 text-center">
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-bold uppercase tracking-widest">
+            <a href="/auth/signup" className="text-blue-500 hover:text-blue-400 transition underline underline-offset-4">
+              회원가입
+            </a>
+            <a href="/" className="text-slate-500 hover:text-white transition">
+              홈으로
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+--- frontend/src/app/auth/signup/page.tsx ---
+"use client";
+import { useState } from "react";
+import { signup } from "@/lib/api";
+import { useRouter } from "next/navigation";
+
+export default function SignupPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [region, setRegion] = useState("");
+  const [ref, setRef] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const onSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (password.length < 12) {
+      setError("비밀번호는 12자 이상이어야 합니다.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await signup(email, password, region || undefined, ref || undefined);
+      localStorage.setItem("access", res.access);
+      router.push("/deposits");
+    } catch (e: any) {
+      setError(e.message || "회원가입 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center px-4 py-12">
+      <div className="glass p-8 md:p-12 rounded-3xl w-full max-w-md shadow-2xl border border-slate-700/50">
+        <h2 className="text-3xl font-black mb-8 text-center text-white">회원가입</h2>
+
+        <form onSubmit={onSignup} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">이메일</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="이메일을 입력하세요"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">비밀번호</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="12자 이상 입력하세요"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">비밀번호 확인</label>
+            <input
+              type="password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+              placeholder="비밀번호를 다시 입력하세요"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">지역 코드</label>
+              <input
+                type="text"
+                value={region}
+                onChange={e => setRegion(e.target.value)}
+                className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+                placeholder="선택사항"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">추천 코드</label>
+              <input
+                type="text"
+                value={ref}
+                onChange={e => setRef(e.target.value)}
+                className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
+                placeholder="선택사항"
+              />
+            </div>
+          </div>
+
+          {error && (
+            <p className="text-red-400 text-sm text-center font-bold bg-red-500/10 py-3 rounded-xl border border-red-500/20">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black text-lg rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]"
+          >
+            {loading ? "회원가입 중..." : "회원가입"}
+          </button>
+        </form>
+
+        <div className="mt-10 pt-6 border-t border-slate-800 text-center">
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-bold uppercase tracking-widest">
+            <a href="/auth/login" className="text-slate-500 hover:text-white transition">
+              로그인
+            </a>
+            <a href="/" className="text-slate-500 hover:text-white transition">
+              홈으로
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+--- frontend/src/app/buy/page.tsx ---
+"use client";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { createDepositRequest } from "@/lib/api";
+import QRCode from "react-qr-code";
+
+const JOYCOIN_PRICE_USD = 0.20;
+
+export default function BuyPage() {
+  const [amount, setAmount] = useState(0);
+  const [showPayment, setShowPayment] = useState(false);
+  const [checkout, setCheckout] = useState<null | {
+    assigned_address: string;
+    expected_amount: string;
+    reference_code: string;
+  }>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const token = typeof window !== "undefined" ? localStorage.getItem("access") || "" : "";
+
+  const handleIncrement = (val: number) => setAmount(prev => prev + val);
+  const handleReset = (val: number) => setAmount(val);
+
+  const usdtAmount = (amount * JOYCOIN_PRICE_USD).toFixed(2);
+
+  const handleBuy = async () => {
+    if (amount <= 0) return;
+    if (!token) {
+      alert("로그인이 필요합니다");
+      window.location.href = "/auth/login";
+      return;
+    }
+    try {
+      setShowPayment(true);
+      setIsLoading(true);
+      const resp = await createDepositRequest({
+        token,
+        chain: "TRON",
+        amount_usdt: parseFloat(usdtAmount),
+      });
+      setCheckout(resp);
+      setIsLoading(false);
+    } catch (e: any) {
+      setIsLoading(false);
+      setShowPayment(false);
+      alert("입금요청 실패: " + e.message);
+    }
+  };
+
+  function Modal(props: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+    const { open, onClose, children } = props;
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+    if (!open || !mounted) return null;
+    const content = (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+        <div className="relative z-[10000] w-full max-w-md">{children}</div>
+      </div>
+    );
+    return createPortal(content, document.body);
+  }
+
+  if (showPayment) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Modal open={showPayment} onClose={() => (!isLoading ? setShowPayment(false) : () => {})}>
+          <div className="glass p-8 rounded-3xl w-full text-center space-y-6">
+            {isLoading || !checkout ? (
+              <div className="py-6 text-center">
+                <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+                <div className="text-sm text-slate-400">입금 요청 중...</div>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-2xl font-black text-white">입금 확인</h2>
+                <div className="bg-slate-900 p-4 rounded-2xl mx-auto w-48 h-48 flex items-center justify-center relative shadow-inner border border-slate-800">
+                  <QRCode
+                    value={`USDT Payment\nAddr:${checkout.assigned_address}\nAmt:${checkout.expected_amount}`}
+                    size={180}
+                    className="w-full h-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-slate-400 text-sm font-medium">USDT (TRC20)를 이 주소로 전송하세요</p>
+                  <p className="text-4xl font-black text-blue-500">{checkout.expected_amount} <span className="text-lg">USDT</span></p>
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 break-all font-mono text-xs text-blue-400 select-all">
+                    {checkout.assigned_address}
+                  </div>
+                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 break-all font-mono text-xs text-slate-400">
+                    참조코드: {checkout.reference_code}
+                  </div>
+                </div>
+                <div className="pt-4 space-y-3">
+                  <button
+                    onClick={() => setShowPayment(false)}
+                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black rounded-xl transition-all shadow-lg shadow-green-500/20 active:scale-95"
+                  >
+                    확인했습니다
+                  </button>
+                  <button
+                    onClick={() => setShowPayment(false)}
+                    className="w-full py-4 bg-slate-800 text-slate-400 font-bold rounded-xl transition hover:text-white"
+                  >
+                    취소
+                  </button>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl">
+                  <p className="text-[10px] text-blue-400 font-bold uppercase leading-relaxed">
+                    관리자가 입금을 확인하면 상태가 "입금완료"로 변경됩니다.
+                    마이페이지에서 확인하실 수 있습니다.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col items-center py-12 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="w-full max-w-3xl">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+          <div>
+            <h2 className="text-5xl font-black mb-3 italic tracking-tighter text-white">조이코인 구매</h2>
+            <p className="text-slate-500 font-medium">고정 환율: <span className="text-white">1 JOY = $0.20 USDT</span></p>
+          </div>
+          <div className="text-right glass px-8 py-4 rounded-2xl border border-slate-800">
+            <p className="text-xs text-slate-500 uppercase font-black tracking-widest mb-1">소계 (JOY)</p>
+            <p className="text-6xl font-black text-blue-500 tracking-tighter">{amount.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-10">
+            <div className="space-y-4">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                시작 수량 선택
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[1000, 5000, 10000].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => handleReset(v)}
+                    className={`py-4 rounded-2xl font-black transition-all border-2 ${
+                      amount === v
+                        ? 'bg-blue-600 border-blue-400 text-white shadow-xl shadow-blue-600/20'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    {v.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                수량 추가
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[1000, 5000, 10000].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => handleIncrement(v)}
+                    className="py-4 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border-2 border-indigo-500/20 rounded-2xl font-black transition-all active:scale-95"
+                  >
+                    +{v.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="glass p-10 rounded-[2.5rem] flex flex-col justify-between border border-slate-800 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+              </svg>
+            </div>
+
+            <div className="space-y-6 relative">
+              <h3 className="text-lg font-black italic text-slate-400 uppercase tracking-widest">주문 요약</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-slate-500 font-bold border-b border-slate-800 pb-4">
+                  <span>수량</span>
+                  <span className="text-white font-black">{amount.toLocaleString()} JOY</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-500 font-bold border-b border-slate-800 pb-4">
+                  <span>JOY당 가격</span>
+                  <span className="text-white font-black">$0.20 USDT</span>
+                </div>
+                <div className="flex justify-between items-end pt-4">
+                  <span className="text-slate-300 font-black uppercase tracking-widest text-sm">총액</span>
+                  <div className="text-right">
+                    <span className="text-4xl font-black text-blue-500">{usdtAmount}</span>
+                    <span className="text-lg font-black text-blue-600 ml-2">USDT</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleBuy}
+              disabled={amount <= 0}
+              className="mt-12 w-full py-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:grayscale text-white font-black text-2xl rounded-3xl shadow-2xl shadow-blue-600/30 transition-all active:scale-[0.98] uppercase tracking-tighter italic"
+            >
+              결제 진행하기
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+--- frontend/src/app/deposits/page.tsx ---
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { getMyDeposits } from "@/lib/api";
+import { useRouter } from "next/navigation";
+
+function Badge({ status }: { status: string }) {
+  const styles = {
+    pending: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20",
+    confirmed: "bg-blue-500/10 text-blue-500 border border-blue-500/20",
+    credited: "bg-green-500/10 text-green-500 border border-green-500/20",
+    rejected: "bg-red-500/10 text-red-500 border border-red-500/20",
+    review_required: "bg-orange-500/10 text-orange-500 border border-orange-500/20",
+  }[status] || "bg-gray-500/10 text-gray-500 border border-gray-500/20";
+
+  const labels: Record<string, string> = {
+    pending: "구매대기",
+    confirmed: "확인됨",
+    credited: "입금완료",
+    rejected: "거부됨",
+    review_required: "검토 필요",
+  };
+
+  return (
+    <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm ${styles}`}>
+      {labels[status] || status}
+    </span>
+  );
+}
+
+export default function MyDepositsPage() {
+  const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("access") || "" : ""), []);
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!token) {
+      router.push("/auth/login");
+      return;
+    }
+    (async () => {
+      try {
+        const r = await getMyDeposits(token);
+        setItems(r.items || []);
+      } catch (e: any) {
+        alert("조회 실패: " + e.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [token, router]);
+
+  if (!token) return null;
+
+  const totalUsdt = items.reduce((sum, item) => sum + parseFloat(item.expected_amount || 0), 0);
+  const completedCount = items.filter(item => item.status === "credited").length;
+
+  return (
+    <div className="flex-1 max-w-6xl mx-auto w-full p-6 space-y-8 animate-in fade-in duration-700">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="glass p-10 rounded-[2.5rem] md:col-span-2 flex flex-col justify-between relative overflow-hidden border border-slate-800 shadow-2xl">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-600/10 rounded-full blur-[100px]"></div>
+          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-600/10 rounded-full blur-[100px]"></div>
+
+          <div className="relative">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-slate-500 text-xs font-black uppercase tracking-[0.3em]">입금 내역</h3>
+              <span className="bg-blue-600/10 text-blue-400 px-3 py-1 rounded-full text-[10px] font-black border border-blue-500/20">LIVE</span>
+            </div>
+            <div className="flex items-baseline space-x-4">
+              <span className="text-8xl font-black text-white tracking-tighter">{items.length}</span>
+              <span className="text-2xl font-black text-blue-500 italic">건</span>
+            </div>
+          </div>
+
+          <div className="mt-12 flex space-x-12 relative border-t border-slate-800/50 pt-8">
+            <div>
+              <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">총 입금액</p>
+              <p className="text-2xl font-black text-slate-200">{totalUsdt.toFixed(2)} <span className="text-xs font-medium text-slate-500 tracking-normal">USDT</span></p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">완료된 거래</p>
+              <p className="text-2xl font-black text-slate-200">{completedCount} <span className="text-xs font-medium text-slate-500 tracking-normal">건</span></p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <div className="glass p-8 rounded-[2.5rem] flex-1 border border-slate-800 flex flex-col justify-center space-y-4">
+            <h3 className="text-xl font-black italic text-white mb-2">빠른 메뉴</h3>
+            <a
+              href="/buy"
+              className="w-full py-5 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black text-lg transition-all shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center space-x-3"
+            >
+              <span>조이코인 구매</span>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </a>
+            <a
+              href="/"
+              className="w-full py-5 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-2xl font-black transition-all active:scale-95 text-center"
+            >
+              홈으로
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-2xl">
+        <div className="px-10 py-8 border-b border-slate-800 bg-slate-900/40 flex justify-between items-center">
+          <h3 className="text-2xl font-black italic text-white">거래 내역</h3>
+          <div className="flex gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950 border border-slate-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+              <span className="text-[10px] font-black text-slate-400 uppercase">동기화됨</span>
+            </div>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="px-10 py-24 text-center">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+              <p className="text-slate-600 font-bold uppercase tracking-widest text-sm mt-4">불러오는 중...</p>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="px-10 py-24 text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <svg className="w-12 h-12 text-slate-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-slate-600 font-bold uppercase tracking-widest text-sm">입금요청 내역이 없습니다</p>
+              </div>
+            </div>
+          ) : (
+            <table className="w-full text-left">
+              <thead className="bg-slate-950 text-slate-600 text-[10px] uppercase font-black tracking-[0.2em]">
+                <tr>
+                  <th className="px-10 py-6">ID</th>
+                  <th className="px-10 py-6">체인</th>
+                  <th className="px-10 py-6">주소</th>
+                  <th className="px-10 py-6">금액</th>
+                  <th className="px-10 py-6">요청시간</th>
+                  <th className="px-10 py-6 text-right">상태</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {items.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()).map((r) => (
+                  <tr key={r.id} className="hover:bg-slate-800/20 transition-colors">
+                    <td className="px-10 py-7 font-mono text-xs text-slate-400">{r.id}</td>
+                    <td className="px-10 py-7 text-slate-500 font-medium text-sm">{r.chain}</td>
+                    <td className="px-10 py-7 font-mono text-xs text-slate-400 break-all max-w-xs">{r.assigned_address}</td>
+                    <td className="px-10 py-7 text-blue-500 font-black">{r.expected_amount} USDT</td>
+                    <td className="px-10 py-7 text-slate-500 font-medium text-sm">{r.created_at?.replace("T"," ").slice(0,19) || "-"}</td>
+                    <td className="px-10 py-7 text-right">
+                      <Badge status={r.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+--- frontend/src/app/guide/purchase/page.tsx ---
+export default function GuidePurchase() {
+  const Step = ({ n, text }: { n: number; text: string }) => (
+    <div className="rounded-2xl border bg-white p-6">
+      <div className="text-6xl">{n}</div>
+      <p className="mt-4 text-sm text-slate-600">{text}</p>
+    </div>
+  );
+  return (
+    <>
+      <h2 className="text-2xl font-bold mb-6">SNP 구매하기</h2>
+      <div className="grid md:grid-cols-4 gap-6">
+        <Step n={1} text="메뉴에서 '구매하기'를 클릭합니다." />
+        <Step n={2} text="패키지에서 '추가'를 누릅니다." />
+        <Step n={3} text="체크아웃에서 QR 코드를 스캔합니다." />
+        <Step n={4} text="금액과 주소를 확인하고 전송합니다." />
+      </div>
+    </>
+  );
+}
+
+
+================================================================================
+                              DEPLOY / DOCKER
+================================================================================
+
+--- deploy/docker-compose.dev.yml ---
+services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    container_name: joycoin-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./env/.env
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+      - NODE_ENV=development
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    container_name: joycoin-web
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./env/.env
+    environment:
+      - CORS_ORIGINS=http://localhost:3000
+    volumes:
+      - ../backend:/app
+    depends_on:
+      - redis
+      - db
+
+  redis:
+    image: redis:7-alpine
+    container_name: joycoin-redis
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:15-alpine
+    container_name: joycoin-db
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker-data/postgres:/var/lib/postgresql/data
+
+
+--- deploy/Dockerfile.backend ---
+# syntax=docker/dockerfile:1
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1     PYTHONUNBUFFERED=1     PIP_DISABLE_PIP_VERSION_CHECK=1     PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install -r /app/requirements.txt
+
+COPY backend /app
+
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+
+--- deploy/Dockerfile.frontend ---
+# syntax=docker/dockerfile:1
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY frontend/package*.json ./
+RUN npm install
+
+COPY frontend /app
+
+EXPOSE 3000
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+
+
+--- deploy/env/.env.sample ---
+APP_ENV=dev
+CORS_ORIGINS=http://localhost:3000
+NEXT_PUBLIC_API_BASE=http://localhost:8000
+# DB_URL=postgresql+psycopg://app:app@db:5432/app  # (나중 단계에서 사용)
+
+
+================================================================================
+                              END OF PROJECT
+================================================================================

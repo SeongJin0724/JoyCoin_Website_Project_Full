@@ -28,16 +28,17 @@ async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return res.json();
 }
 
-// ✅ 회원가입
-export async function signup(
-  email: string,
-  password: string,
-  region_code?: string,
-  referrer_code?: string
-) {
-  return api<{ access: string }>("/auth/signup", {
+// ✅ 회원가입 (백엔드: username 필수, referral_code/center_id 선택)
+export async function signup(body: {
+  email: string;
+  password: string;
+  username: string;
+  referral_code?: string;
+  center_id?: number;
+}) {
+  return api<{ message: string; user_id: number; referral_code: string }>("/auth/signup", {
     method: "POST",
-    body: { email, password, region_code, referrer_code },
+    body,
   });
 }
 

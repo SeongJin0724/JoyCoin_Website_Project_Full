@@ -1,14 +1,22 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { login } from "@/lib/api";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState(""); 
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [registeredMsg, setRegisteredMsg] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("registered") === "1") {
+      setRegisteredMsg(true);
+    }
+  }, [searchParams]);
 
   const onLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +37,13 @@ export default function LoginPage() {
     <div className="flex-1 flex items-center justify-center px-4 py-12">
       <div className="glass p-8 md:p-12 rounded-3xl w-full max-w-md shadow-2xl border border-slate-700/50">
         <h2 className="text-3xl font-black mb-8 text-center text-white">로그인</h2>
-        
+
+        {registeredMsg && (
+          <p className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm text-center">
+            회원가입이 완료되었습니다. 이메일 인증 링크를 확인한 뒤 로그인해 주세요.
+          </p>
+        )}
+
         <form onSubmit={onLogin} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">이메일</label>
