@@ -7,18 +7,14 @@ import { useRouter } from "next/navigation";
 function Badge({ status }: { status: string }) {
   const styles = {
     pending: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20",
-    confirmed: "bg-blue-500/10 text-blue-500 border border-blue-500/20",
-    credited: "bg-green-500/10 text-green-500 border border-green-500/20",
+    approved: "bg-green-500/10 text-green-500 border border-green-500/20",
     rejected: "bg-red-500/10 text-red-500 border border-red-500/20",
-    review_required: "bg-orange-500/10 text-orange-500 border border-orange-500/20",
   }[status] || "bg-gray-500/10 text-gray-500 border border-gray-500/20";
-  
+
   const labels: Record<string, string> = {
-    pending: "구매대기",
-    confirmed: "확인됨",
-    credited: "입금완료",
+    pending: "대기중",
+    approved: "입금완료",
     rejected: "거부됨",
-    review_required: "검토 필요",
   };
   
   return (
@@ -54,7 +50,7 @@ export default function MyDepositsPage() {
   if (!token) return null;
 
   const totalUsdt = items.reduce((sum, item) => sum + parseFloat(item.expected_amount || 0), 0);
-  const completedCount = items.filter(item => item.status === "credited").length;
+  const completedCount = items.filter(item => item.status === "approved").length;
 
   return (
     <div className="flex-1 max-w-6xl mx-auto w-full p-6 space-y-8 animate-in fade-in duration-700">

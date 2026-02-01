@@ -10,9 +10,9 @@ export default function BuyPage() {
   const [amount, setAmount] = useState(0);
   const [showPayment, setShowPayment] = useState(false);
   const [checkout, setCheckout] = useState<null | {
+    id: number;
     assigned_address: string;
-    expected_amount: string;
-    reference_code: string;
+    expected_amount: number | string;
   }>(null);
   const [isLoading, setIsLoading] = useState(false);
   const token = typeof window !== "undefined" ? localStorage.getItem("access") || "" : "";
@@ -34,7 +34,7 @@ export default function BuyPage() {
       setIsLoading(true);
       const resp = await createDepositRequest({
         token,
-        chain: "TRON",
+        chain: "TRC20",
         amount_usdt: parseFloat(usdtAmount),
       });
       setCheckout(resp);
@@ -75,7 +75,7 @@ export default function BuyPage() {
                 <h2 className="text-2xl font-black text-white">입금 확인</h2>
                 <div className="bg-slate-900 p-4 rounded-2xl mx-auto w-48 h-48 flex items-center justify-center relative shadow-inner border border-slate-800">
                   <QRCode 
-                    value={`USDT Payment\nAddr:${checkout.assigned_address}\nAmt:${checkout.expected_amount}`} 
+                    value={`USDT Payment\nAddr:${checkout.assigned_address}\nAmt:${String(checkout.expected_amount)}`} 
                     size={180}
                     className="w-full h-full"
                   />
@@ -87,7 +87,7 @@ export default function BuyPage() {
                     {checkout.assigned_address}
                   </div>
                   <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 break-all font-mono text-xs text-slate-400">
-                    참조코드: {checkout.reference_code}
+                    요청번호: {checkout.id}
                   </div>
                 </div>
                 <div className="pt-4 space-y-3">

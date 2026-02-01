@@ -50,19 +50,19 @@ export async function login(email: string, password: string) {
   });
 }
 
-// ✅ 입금요청 생성
+// ✅ 입금요청 생성 (백엔드 허용: TRC20, ERC20, BSC, Polygon)
 export async function createDepositRequest(params: {
   token: string;
-  chain: "TRON" | "ETH";
+  chain: "TRC20" | "ERC20" | "BSC" | "Polygon";
   amount_usdt: number;
 }) {
   return api<{
     id: number;
     chain: string;
     assigned_address: string;
-    expected_amount: string;
-    reference_code: string;
+    expected_amount: number;
     status: string;
+    created_at: string;
   }>("/deposits/request", {
     method: "POST",
     headers: { Authorization: `Bearer ${params.token}` },
