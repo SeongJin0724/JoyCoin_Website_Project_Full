@@ -36,7 +36,7 @@ def list_deposits(
     return q.limit(200).all()
 
 
-# ---------- Approve ----------
+# ---------- Approve (상태 변경 + 유저 잔액 충전) ----------
 @router.post("/{deposit_id}/approve", response_model=DepositRequestOut)
 def approve_deposit(
     deposit_id: int,
@@ -44,21 +44,36 @@ def approve_deposit(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
+    # 1. 입금 요청 존재 확인
     dr = db.query(DepositRequest).filter(DepositRequest.id == deposit_id).first()
     if not dr:
-        raise HTTPException(404, "deposit_request not found")
+        raise HTTPException(404, "입금 요청(deposit_request)을 찾을 수 없습니다.")
 
+    # 2. 이미 승인된 경우 중복 처리 방지
     if dr.status == "approved":
         return dr
 
+    # 3. 대기 중인 상태인지 확인
     if dr.status != "pending":
-        raise HTTPException(400, f"invalid state: {dr.status}")
+        raise HTTPException(400, f"처리할 수 없는 상태입니다: {dr.status}")
 
+    # 4. 입금 요청 정보 업데이트
     dr.actual_amount = payload.actual_amount if payload.actual_amount else dr.expected_amount
     dr.admin_notes = payload.admin_notes
     dr.admin_id = admin.id
     dr.status = "approved"
     dr.approved_at = datetime.utcnow()
+
+    # 5. [중요] 유저 잔액(Balance) 실제 충전 로직
+    user = db.query(User).filter(User.id == dr.user_id).first()
+    if user:
+        if hasattr(user, "balance"):
+            user.balance += dr.actual_amount
+        else:
+            # 혹시 모델에 balance 필드가 없을 경우를 대비 (로그 확인용)
+            print(f"⚠️ 경고: User 모델에 'balance' 필드가 없습니다. {user.email}")
+    else:
+        raise HTTPException(404, "해당 입금을 신청한 유저를 찾을 수 없습니다.")
 
     db.commit()
     db.refresh(dr)
@@ -75,10 +90,10 @@ def reject_deposit(
 ):
     dr = db.query(DepositRequest).filter(DepositRequest.id == deposit_id).first()
     if not dr:
-        raise HTTPException(404, "deposit_request not found")
+        raise HTTPException(404, "입금 요청을 찾을 수 없습니다.")
 
     if dr.status == "approved":
-        raise HTTPException(400, "already approved")
+        raise HTTPException(400, "이미 승인된 요청은 거절할 수 없습니다.")
 
     if dr.status == "rejected":
         return dr

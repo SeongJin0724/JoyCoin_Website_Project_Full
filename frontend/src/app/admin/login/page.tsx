@@ -14,40 +14,27 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // [치트키] 백엔드 서버 응답이 없을 때 사용하는 임시 우회 로직
-    if (email === "admin@test.com" && password === "1234") {
-      localStorage.setItem('accessToken', 'dev-bypass-token-2026'); // 임시 열쇠 저장
-      alert("임시 계정으로 로그인합니다 (개발자 모드)");
-      router.push('/admin/dashboard'); // 대시보드로 즉시 이동
-      return; // 아래의 진짜 서버 통신 로직은 실행하지 않고 종료합니다.
-    }
-
     try {
-      // 실제 백엔드 서버(Docker)와 통신하는 부분
-      const response = await fetch('http://localhost:8000/auth/login', {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: email, // 형님 서버가 요구하는 필드명
-          password: password 
-        }),
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('accessToken', data.access_token);
-        alert("관리자 인증 성공!");
         router.push('/admin/dashboard');
       } else {
-        const errorDetail = typeof data.detail === 'object' 
-          ? JSON.stringify(data.detail) 
+        const errorDetail = typeof data.detail === 'object'
+          ? JSON.stringify(data.detail)
           : data.detail;
-        alert(`로그인 실패: ${errorDetail}`); // [object Object] 방지 처리
+        alert(`로그인 실패: ${errorDetail}`);
       }
     } catch (error) {
-      // 서버가 꺼져있어도 치트키를 쓰면 여기까지 오지 않습니다.
-      alert("서버 연결 실패! (치트키 계정을 사용해 보세요)");
+      alert("서버 연결 실패");
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +57,7 @@ export default function AdminLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl focus:outline-none focus:border-red-500 text-white transition-all font-mono"
-              placeholder="admin@test.com"
+              placeholder="admin@example.com"
             />
           </div>
 
@@ -82,7 +69,7 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl focus:outline-none focus:border-red-500 text-white transition-all"
-              placeholder="1234"
+              placeholder="••••••••"
             />
           </div>
 
@@ -98,7 +85,7 @@ export default function AdminLoginPage() {
         </form>
         
         <p className="text-slate-600 text-[9px] text-center mt-6 uppercase font-bold tracking-widest opacity-50">
-          Bypass mode enabled for testing
+          Authorized Personnel Only
         </p>
       </div>
     </div>

@@ -43,12 +43,12 @@ export default function AdminDashboard() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        // [주의] 형님이 데이터를 다 만드시면 아래 주소를 실제 API 주소로 바꾸면 됩니다.
-        // 현재는 서버가 없을 수 있으므로 에러 처리를 포함합니다.
-        const response = await fetch('http://localhost:8000/admin/requests', {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+        const response = await fetch(`${API_BASE_URL}/admin/requests`, {
           headers: {
             'Authorization': `Bearer ${getCookie('accessToken')}`
-          }
+          },
+          credentials: 'include'
         });
 
         if (!response.ok) throw new Error('서버 데이터를 가져올 수 없습니다.');

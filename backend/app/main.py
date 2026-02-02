@@ -18,6 +18,7 @@ from app.api.products import router as products_router
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import hash_password
+from app.core.enums import UserRole
 
 # 새로운 모델 import
 from app.models import (
@@ -98,8 +99,8 @@ def seed_super_admin():
     with next(get_db()) as db:
         exists = db.query(User).filter(User.email == settings.SUPER_ADMIN_EMAIL).first()
         if exists:
-            if exists.role != "admin":
-                exists.role = "admin"
+            if exists.role != UserRole.ADMIN.value:
+                exists.role = UserRole.ADMIN.value
                 db.commit()
             return
 
@@ -107,7 +108,7 @@ def seed_super_admin():
             email=settings.SUPER_ADMIN_EMAIL,
             password_hash=hash_password(settings.SUPER_ADMIN_PASSWORD),
             username="SuperAdmin",
-            role="admin",
+            role=UserRole.ADMIN.value,
             is_email_verified=True,
         )
         db.add(admin)

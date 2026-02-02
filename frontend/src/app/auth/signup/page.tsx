@@ -5,140 +5,116 @@ import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
   const router = useRouter();
-
-  // 1. 모든 필드 상태 통합
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [username, setUsername] = useState("");
-  const [centerId, setCenterId] = useState("");
-  const [ref, setRef] = useState("");
+  const [centers, setCenters] = useState<{id: number, name: string}[]>([]);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirm: '',
+    nickname: '',
+    center_id: '', // [중요] 이름을 center_id로 통일합니다.
+    ref: ''
+  });
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // 2. 회원가입 처리 로직 (보안 검증 + API 연동)
+  // 1. 센터 목록 불러오기
+  useEffect(() => {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+    fetch(`${API_BASE_URL}/centers`)
+      .then(res => res.json())
+      .then(data => {
+        // 형님이 확인하신 데이터가 배열이므로 바로 넣습니다.
+        if (Array.isArray(data)) {
+          setCenters(data);
+        }
+      })
+      .catch(() => setError("센터 정보를 가져오지 못했습니다."));
+  }, []);
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.password !== formData.confirm) return setError("비밀번호가 일치하지 않습니다.");
+    if (formData.password.length < 12) return setError("비밀번호 12자 이상 필수입니다.");
+
+    setLoading(true);
     setError("");
 
-    // [보안 검증] 윤성 님의 로직 유지
-    if (password.length < 12) {
-      setError("비밀번호는 12자 이상이어야 합니다.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("비밀번호가 일치하지 않습니다.");
-      return;
-    }
-    if (!username.trim()) {
-      setError("이름(닉네임)을 입력해 주세요.");
-      return;
-    }
-
-    setIsLoading(true);
-
     try {
-      // [성진 형님 백엔드 규격] 필드명 일치화
-      const response = await fetch('http://localhost:8000/auth/signup', {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: email,        // 서버 규격: 이메일을 username으로 사용
-          password: password,
-          nickname: username.trim(), // 추가 필드: 이름/닉네임
-          center_id: centerId ? Number(centerId) : null, // 숫자 변환
-          referral_code: ref.trim() || null // 추천인 코드
+          email: formData.email,
+          password: formData.password,
+          username: formData.nickname,
+          center_id: Number(formData.center_id), // 숫자로 변환해서 전송
+          referral_code: formData.ref || null
         }),
       });
 
       if (response.ok) {
-        alert("회원가입 성공! 이제 로그인을 해주세요.");
-        router.push('/auth/login?registered=1'); // 로그인 페이지로 이동
+        router.push('/auth/login?registered=1');
       } else {
         const data = await response.json();
-        setError(data.detail || "가입 실패. 입력 정보를 확인하세요.");
+        setError(data.detail || "가입에 실패했습니다.");
       }
     } catch (err) {
-      setError("서버 연결 실패! 백엔드 서버가 켜져 있는지 확인하세요.");
+      setError("서버 연결에 실패했습니다.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 text-white font-sans">
-      <div className="glass p-10 rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl relative">
-        <div className="text-center mb-8">
-          <h2 className="text-blue-500 text-xs font-black uppercase tracking-[0.4em] mb-2 text-glow">Join JoyCoin</h2>
-          <h1 className="text-3xl font-black italic">SIGN UP</h1>
-        </div>
-
+      <div className="glass p-10 rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl">
+        <h1 className="text-3xl font-black italic text-center mb-10 text-blue-500 uppercase">Create Account</h1>
+        
         <form onSubmit={handleSignup} className="space-y-4">
-          {/* Email / Username */}
-          <div className="space-y-1">
-            <label className="text-slate-500 text-[10px] font-bold uppercase ml-2">Email Address</label>
-            <input 
-              type="email" placeholder="example@joy.com" required value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl focus:border-blue-500 outline-none transition-all"
-            />
-          </div>
+          <input type="text" placeholder="Your Nickname" required 
+            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+            value={formData.nickname} onChange={e => setFormData({...formData, nickname: e.target.value})} />
 
-          {/* Nickname */}
-          <div className="space-y-1">
-            <label className="text-slate-500 text-[10px] font-bold uppercase ml-2">Display Name</label>
-            <input 
-              type="text" placeholder="2자 이상 닉네임" required value={username} onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl focus:border-blue-500 outline-none transition-all"
-            />
-          </div>
+          <input type="email" placeholder="Email Address" required 
+            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+            value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+
+          <input type="password" placeholder="Password (12+ chars)" required 
+            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+            value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
           
-          {/* Password & Confirm */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-slate-500 text-[10px] font-bold uppercase ml-2">Password</label>
-              <input 
-                type="password" placeholder="12자 이상" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-sm focus:border-blue-500 outline-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-slate-500 text-[10px] font-bold uppercase ml-2">Confirm</label>
-              <input 
-                type="password" placeholder="비밀번호 확인" required value={confirm} onChange={(e) => setConfirm(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-sm focus:border-blue-500 outline-none"
-              />
-            </div>
-          </div>
+          <input type="password" placeholder="Confirm Password" required 
+            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+            value={formData.confirm} onChange={e => setFormData({...formData, confirm: e.target.value})} />
 
-          {/* Center & Referral */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-slate-500 text-[10px] font-bold uppercase ml-2">Center ID</label>
-              <input 
-                type="number" placeholder="ID (1, 2...)" value={centerId} onChange={(e) => setCenterId(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-sm outline-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-slate-500 text-[10px] font-bold uppercase ml-2">Referral</label>
-              <input 
-                type="text" placeholder="Code (JOY...)" value={ref} onChange={(e) => setRef(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-xl text-sm outline-none"
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[10px] font-bold text-center">
-              {error}
-            </div>
-          )}
-
-          <button 
-            type="submit" disabled={isLoading}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-900/20 active:scale-95 transition-all mt-4"
+          {/* 센터 선택 드롭다운 */}
+          <select 
+            required 
+            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500 text-white"
+            value={formData.center_id} // state 이름과 일치시킴
+            onChange={e => {
+              console.log("선택된 센터 ID:", e.target.value); // [체크용 로그]
+              setFormData({...formData, center_id: e.target.value});
+            }}
           >
-            {isLoading ? "PROCESSING..." : "REGISTER NOW"}
+            <option value="">소속 센터를 선택하세요</option>
+            {centers.map(c => (
+              <option key={c.id} value={c.id} className="text-black">
+                {c.name} ({c.region})
+              </option>
+            ))}
+          </select>
+
+          <input type="text" placeholder="Referral Code (Optional)" 
+            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+            value={formData.ref} onChange={e => setFormData({...formData, ref: e.target.value})} />
+
+          {error && <p className="text-red-400 text-xs text-center font-bold animate-pulse">{error}</p>}
+
+          <button type="submit" disabled={loading} 
+            className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black transition-all active:scale-95">
+            {loading ? "PROCESSING..." : "JOIN JOYCOIN"}
           </button>
         </form>
       </div>

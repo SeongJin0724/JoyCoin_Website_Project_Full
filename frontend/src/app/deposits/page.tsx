@@ -24,29 +24,27 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function MyPage() {
-  const [items, setItems] = useState<any[]>([]); 
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState(""); 
   const router = useRouter();
 
   // 1. 내 입금 내역 가져오기 (GET /deposits/my)
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        router.push('/auth/login');
-        return;
-      }
-
       try {
-        const response = await fetch('http://localhost:8000/deposits/my', {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+        const response = await fetch(`${API_BASE_URL}/deposits/my`, {
+          credentials: 'include'
         });
+
+        if (response.status === 401) {
+          router.push('/auth/login');
+          return;
+        }
 
         if (response.ok) {
           const data = await response.json();
-          setItems(data.items || []); 
-          setUserEmail(localStorage.getItem('userEmail') || "user@joycoin.com");
+          setItems(data.items || []);
         }
       } catch (error) {
         console.error("내역 로드 실패:", error);

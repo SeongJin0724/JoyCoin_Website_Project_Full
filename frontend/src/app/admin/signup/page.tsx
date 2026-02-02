@@ -20,10 +20,11 @@ export default function SignupPage() {
   useEffect(() => {
     const fetchCenters = async () => {
       try {
-        const response = await fetch('http://localhost:8000/centers');
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+        const response = await fetch(`${API_BASE_URL}/centers`);
         if (response.ok) {
           const data = await response.json();
-          setCenters(data); // 형님 명세서: [{ "id", "name", "region" }, ...]
+          setCenters(data);
         }
       } catch (error) {
         console.error("센터 목록을 가져오는데 실패했습니다:", error);
@@ -46,9 +47,8 @@ export default function SignupPage() {
         referral_code: referrer     // 추천인 코드
       };
 
-      console.log("서버로 보내는 데이터:", signupData);
-
-      const response = await fetch('http://localhost:8000/auth/signup', {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(signupData),
