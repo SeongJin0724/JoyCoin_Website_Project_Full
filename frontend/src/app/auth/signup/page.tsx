@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
   const router = useRouter();
-  const [centers, setCenters] = useState<{id: number, name: string}[]>([]);
+  const [centers, setCenters] = useState<{id: number; name: string; region: string}[]>([]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',

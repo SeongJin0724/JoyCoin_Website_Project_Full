@@ -39,12 +39,13 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      // 형님 명세서에 맞춘 데이터 구성
+      // 백엔드 스키마에 맞춘 데이터 구성
       const signupData = {
-        username: email,           // 이메일을 username 필드로 보냄
+        email: email,
         password: password,
-        center_id: Number(selectedCenterId), // 숫자로 변환해서 보냄
-        referral_code: referrer     // 추천인 코드
+        username: email.split('@')[0], // 이메일 앞부분을 username으로 사용
+        center_id: Number(selectedCenterId),
+        referral_code: referrer || null
       };
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
