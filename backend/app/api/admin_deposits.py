@@ -9,6 +9,7 @@ from app.core.db import get_db
 from app.core.auth import get_current_admin
 from app.models import DepositRequest, User
 from app.schemas.deposits import DepositRequestOut
+from app.services.telegram import notify_deposit_approved
 
 router = APIRouter(prefix="/admin/deposits", tags=["admin:deposits"])
 
@@ -77,6 +78,17 @@ def approve_deposit(
 
     db.commit()
     db.refresh(dr)
+
+    # 텔레그램 알림 전송
+    try:
+        notify_deposit_approved(
+            user_email=user.email,
+            amount=dr.actual_amount,
+            deposit_id=dr.id
+        )
+    except Exception as e:
+        print(f"텔레그램 알림 실패 (무시): {e}")
+
     return dr
 
 

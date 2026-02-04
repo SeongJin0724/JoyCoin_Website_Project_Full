@@ -30,11 +30,44 @@ frontend/src/app/
   ├── admin/
   │   ├── login/        - 관리자 로그인
   │   ├── signup/       - 관리자 회원가입
-  │   ├── dashboard/    - 관리자 대시보드
+  │   ├── dashboard/    - 관리자 대시보드 (실제 API 연동)
   │   └── referrers/    - 추천인 관리
-  ├── buy/              - 패키지 구매 (API 연동)
+  ├── buy/              - 패키지 구매 (QR 코드 + 입금 주소 표시)
   ├── mypage/           - 마이페이지 (유저 정보 + 잔액 + 입금 내역)
   └── page.tsx          - 메인 페이지
+```
+
+---
+
+### 2차 작업: 핵심 기능 구현 완료
+
+1. **관리자 대시보드 실제 API 연동**
+   - `GET /admin/deposits` - 입금 요청 목록 조회
+   - `POST /admin/deposits/{id}/approve` - 승인 (유저 잔액 자동 충전)
+   - `POST /admin/deposits/{id}/reject` - 거절
+   - 실시간 통계 (대기중/승인완료/거절됨 카운트)
+   - 이메일 마스킹 (개인정보 보호)
+
+2. **QR 코드 및 입금 주소 표시**
+   - 입금 요청 성공 시 모달로 QR 코드 표시
+   - `assigned_address` 표시 (복사 가능)
+   - 입금 금액 및 네트워크 정보 표시
+   - 주의사항 안내
+
+3. **텔레그램 알림 시스템**
+   - `backend/app/services/telegram.py` 추가
+   - 입금 요청 시 관리자에게 알림
+   - 승인 완료 시 알림
+   - 환경변수 설정: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+   - 알림 실패 시에도 서비스는 정상 작동 (비동기)
+
+### 환경변수 설정 필요
+
+```env
+# backend/.env
+USDT_ADMIN_ADDRESS=입금받을주소
+TELEGRAM_BOT_TOKEN=봇토큰
+TELEGRAM_CHAT_ID=채팅ID
 ```
 
 ---

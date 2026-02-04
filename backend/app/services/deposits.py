@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from app.models import User, DepositRequest
 from app.core.config import settings
+from app.services.telegram import notify_new_deposit_request
 
 
 def create_deposit_request(db: Session, user: User, data):
@@ -23,6 +24,18 @@ def create_deposit_request(db: Session, user: User, data):
     db.add(req)
     db.commit()
     db.refresh(req)
+
+    # 텔레그램 알림 전송 (비동기적으로 실패해도 입금 요청은 생성됨)
+    try:
+        notify_new_deposit_request(
+            user_email=user.email,
+            amount=float(amt),
+            chain=data.chain,
+            deposit_id=req.id
+        )
+    except Exception as e:
+        print(f"텔레그램 알림 실패 (무시): {e}")
+
     return req
 
 
