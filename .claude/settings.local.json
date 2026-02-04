@@ -12,7 +12,9 @@
       "Bash(powershell -Command \"Invoke-RestMethod -Uri http://localhost:8000/healthz\")",
       "Bash(powershell -Command \"Invoke-RestMethod -Uri http://localhost:8000/centers | ConvertTo-Json\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python:*)"
     ]
   }
 }
