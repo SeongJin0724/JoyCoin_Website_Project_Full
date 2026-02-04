@@ -1,5 +1,6 @@
 # backend/app/services/telegram.py
 import requests
+from datetime import datetime
 from app.core.config import settings
 
 
@@ -47,7 +48,7 @@ def notify_new_deposit_request(user_email: str, amount: float, chain: str, depos
 🌐 네트워크: {chain}
 🆔 요청 ID: #{deposit_id}
 
-⏰ 시간: {requests.utils.default_headers()['User-Agent']}
+⏰ 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
     return send_telegram_notification(message)
 
