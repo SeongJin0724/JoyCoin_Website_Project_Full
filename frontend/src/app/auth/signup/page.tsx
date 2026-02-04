@@ -5,30 +5,29 @@ import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
   const router = useRouter();
-  const [centers, setCenters] = useState<{id: number; name: string; region: string}[]>([]);
+  const [sectors, setSectors] = useState<{id: number; name: string}[]>([]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirm: '',
     nickname: '',
-    center_id: '', // [중요] 이름을 center_id로 통일합니다.
+    sector_id: '',
     ref: ''
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 1. 센터 목록 불러오기
+  // 1. 섹터 목록 불러오기
   useEffect(() => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-    fetch(`${API_BASE_URL}/centers`)
+    fetch(`${API_BASE_URL}/sectors`)
       .then(res => res.json())
       .then(data => {
-        // 형님이 확인하신 데이터가 배열이므로 바로 넣습니다.
         if (Array.isArray(data)) {
-          setCenters(data);
+          setSectors(data);
         }
       })
-      .catch(() => setError("센터 정보를 가져오지 못했습니다."));
+      .catch(() => setError("섹터 정보를 가져오지 못했습니다."));
   }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -48,7 +47,7 @@ export default function SignupPage() {
           email: formData.email,
           password: formData.password,
           username: formData.nickname,
-          center_id: Number(formData.center_id), // 숫자로 변환해서 전송
+          sector_id: formData.sector_id ? Number(formData.sector_id) : null,
           referral_code: formData.ref || null
         }),
       });
@@ -88,20 +87,17 @@ export default function SignupPage() {
             className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
             value={formData.confirm} onChange={e => setFormData({...formData, confirm: e.target.value})} />
 
-          {/* 센터 선택 드롭다운 */}
-          <select 
-            required 
+          {/* 섹터 선택 드롭다운 */}
+          <select
+            required
             className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500 text-white"
-            value={formData.center_id} // state 이름과 일치시킴
-            onChange={e => {
-              console.log("선택된 센터 ID:", e.target.value); // [체크용 로그]
-              setFormData({...formData, center_id: e.target.value});
-            }}
+            value={formData.sector_id}
+            onChange={e => setFormData({...formData, sector_id: e.target.value})}
           >
-            <option value="">소속 센터를 선택하세요</option>
-            {centers.map(c => (
-              <option key={c.id} value={c.id} className="text-black">
-                {c.name} ({c.region})
+            <option value="">소속 섹터를 선택하세요</option>
+            {sectors.map(s => (
+              <option key={s.id} value={s.id} className="text-black">
+                섹터 {s.name}
               </option>
             ))}
           </select>

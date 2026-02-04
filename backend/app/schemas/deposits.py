@@ -24,3 +24,29 @@ class DepositRequestOut(BaseModel):
     created_at: datetime
 
     model_config = dict(from_attributes=True)
+
+
+class UserBrief(BaseModel):
+    id: int
+    email: str
+    username: str
+
+    model_config = dict(from_attributes=True)
+
+
+class AdminDepositRequestOut(BaseModel):
+    id: int
+    user_id: int
+    user: UserBrief
+    purchase_id: Optional[int] = None
+    chain: str
+    assigned_address: str
+    expected_amount: float
+    actual_amount: Optional[float] = None
+    status: str
+    admin_id: Optional[int] = None
+    admin_notes: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = dict(from_attributes=True)

@@ -1,6 +1,7 @@
 # backend/app/models/__init__.py
 
 from app.models.center import Center
+from app.models.sector import Sector
 from app.models.user import User
 from app.models.referral import Referral
 from app.models.product import Product
@@ -13,6 +14,7 @@ from app.models.notification import Notification
 __all__ = [
     "User",
     "Center",
+    "Sector",
     "Referral",
     "Product",
     "Purchase",

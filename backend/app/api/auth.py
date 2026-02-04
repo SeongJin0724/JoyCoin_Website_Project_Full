@@ -4,7 +4,7 @@ from sqlalchemy import func
 from app.core.db import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.schemas.auth import SignupIn, LoginIn, Tokens
-from app.models import User, Center, Referral, Point
+from app.models import User, Center, Referral, Point, Sector
 from app.core.config import settings
 from jose import jwt, JWTError # 토큰 해독을 위해 필요
 
@@ -52,12 +52,18 @@ def signup(data: SignupIn, db: Session = Depends(get_db)):
         if not center:
             raise HTTPException(status_code=400, detail="유효하지 않은 센터입니다")
 
+    if data.sector_id:
+        sector = db.query(Sector).filter(Sector.id == data.sector_id).first()
+        if not sector:
+            raise HTTPException(status_code=400, detail="유효하지 않은 섹터입니다")
+
     user = User(
         email=data.email,
         password_hash=hash_password(data.password),
         username=data.username,
         referred_by=referrer.id if referrer else None,
         center_id=data.center_id if data.center_id else None,
+        sector_id=data.sector_id if data.sector_id else None,
         role="user",
         is_email_verified=True,
     )
@@ -122,13 +128,32 @@ def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):
     """
-    현재 로그인된 유저의 정보를 반환합니다. 
-    마이페이지 404 에러와 인증 세션 만료를 해결합니다.
+    현재 로그인된 유저의 정보를 반환합니다.
+    마이페이지에서 센터 정보, 추천코드 등 필요한 데이터를 포함합니다.
     """
+    center_data = None
+    if current_user.center:
+        center_data = {
+            "id": current_user.center.id,
+            "name": current_user.center.name,
+            "region": current_user.center.region,
+        }
+
     return {
         "id": current_user.id,
         "email": current_user.email,
         "username": current_user.username,
-        "balance": getattr(current_user, "balance", 0), # balance 필드가 모델에 있다면 가져옴
-        "role": current_user.role
+        "balance": float(current_user.balance or 0),
+        "role": current_user.role,
+        "referral_code": current_user.referral_code,
+        "center": center_data,
     }
+
+
+# ---------------------------------------------------------
+# 4. 로그아웃
+# ---------------------------------------------------------
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie("accessToken", path="/")
+    return {"message": "로그아웃 성공"}

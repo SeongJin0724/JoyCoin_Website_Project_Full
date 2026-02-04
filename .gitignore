@@ -112,4 +112,4 @@ env/
 back-end/.venv/
 
 # Docker Local Data (if any)
-.docker/
+.docker/nul

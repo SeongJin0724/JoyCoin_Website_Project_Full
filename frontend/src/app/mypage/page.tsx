@@ -141,7 +141,7 @@ export default function MyPage() {
                   deposits.map((dep) => (
                     <tr key={dep.id} className="border-b border-slate-800/30 hover:bg-white/5 transition-colors">
                       <td className="py-4 font-mono text-slate-500">{dep.id.toString().slice(0, 8)}</td>
-                      <td className="py-4 font-black">{dep.amount_usdt} USDT</td>
+                      <td className="py-4 font-black">{dep.expected_amount} USDT</td>
                       <td className="py-4 text-slate-400">{dep.chain}</td>
                       <td className="py-4">{getStatusBadge(dep.status)}</td>
                       <td className="py-4 text-right text-slate-500">

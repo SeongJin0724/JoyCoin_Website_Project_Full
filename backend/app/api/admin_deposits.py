@@ -5,10 +5,12 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 
+from sqlalchemy.orm import joinedload
+
 from app.core.db import get_db
 from app.core.auth import get_current_admin
 from app.models import DepositRequest, User
-from app.schemas.deposits import DepositRequestOut
+from app.schemas.deposits import DepositRequestOut, AdminDepositRequestOut
 from app.services.telegram import notify_deposit_approved
 
 router = APIRouter(prefix="/admin/deposits", tags=["admin:deposits"])
@@ -25,13 +27,13 @@ class RejectIn(BaseModel):
 
 
 # ---------- List ----------
-@router.get("", response_model=List[DepositRequestOut])
+@router.get("", response_model=List[AdminDepositRequestOut])
 def list_deposits(
     status: Optional[str] = Query(None, description="pending|approved|rejected"),
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    q = db.query(DepositRequest).order_by(DepositRequest.created_at.desc())
+    q = db.query(DepositRequest).options(joinedload(DepositRequest.user)).order_by(DepositRequest.created_at.desc())
     if status:
         q = q.filter(DepositRequest.status == status)
     return q.limit(200).all()
@@ -67,14 +69,9 @@ def approve_deposit(
 
     # 5. [중요] 유저 잔액(Balance) 실제 충전 로직
     user = db.query(User).filter(User.id == dr.user_id).first()
-    if user:
-        if hasattr(user, "balance"):
-            user.balance += dr.actual_amount
-        else:
-            # 혹시 모델에 balance 필드가 없을 경우를 대비 (로그 확인용)
-            print(f"⚠️ 경고: User 모델에 'balance' 필드가 없습니다. {user.email}")
-    else:
+    if not user:
         raise HTTPException(404, "해당 입금을 신청한 유저를 찾을 수 없습니다.")
+    user.balance = float(user.balance or 0) + float(dr.actual_amount)
 
     db.commit()
     db.refresh(dr)

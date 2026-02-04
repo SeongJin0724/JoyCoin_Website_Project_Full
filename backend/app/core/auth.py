@@ -36,3 +36,18 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
             detail="관리자 권한이 없습니다."
         )
     return current_user
+
+
+# 3. 섹터 매니저 확인 경비원 (쿠키 기반)
+def get_current_sector_manager(current_user: User = Depends(get_current_user)):
+    if current_user.role != "sector_manager":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="섹터 매니저 권한이 없습니다."
+        )
+    if not current_user.sector_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="배정된 섹터가 없습니다."
+        )
+    return current_user

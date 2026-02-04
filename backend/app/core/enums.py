@@ -6,6 +6,7 @@ class UserRole(str, Enum):
     """사용자 역할"""
     USER = "user"
     ADMIN = "admin"
+    SECTOR_MANAGER = "sector_manager"
 
 
 class DepositStatus(str, Enum):

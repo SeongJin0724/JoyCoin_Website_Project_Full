@@ -1,7 +1,7 @@
 # backend/app/main.py
 import os
 import logging
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
@@ -13,6 +13,8 @@ from app.api.deposits import router as deposits_router
 from app.api.admin_deposits import router as admin_deposits_router
 from app.api.admin_users import router as admin_users_router
 from app.api.admin_settings import router as admin_settings_router
+from app.api.admin_sectors import router as admin_sectors_router
+from app.api.sector_dashboard import router as sector_dashboard_router
 from app.api.centers import router as centers_router
 from app.api.products import router as products_router
 from app.api.notifications import router as notifications_router
@@ -24,7 +26,7 @@ from app.core.enums import UserRole
 
 # 새로운 모델 import
 from app.models import (
-    User, Center, Referral, Product, Purchase,
+    User, Center, Sector, Referral, Product, Purchase,
     DepositRequest, Point, ExchangeRate, Notification
 )
 
@@ -132,29 +134,42 @@ def seed_initial_data():
             db.commit()
             logger.info("- Created 3 centers")
 
-        # 2. 상품 생성
+        # 2. 섹터 생성
+        if db.query(Sector).count() == 0:
+            sectors = [
+                Sector(name="A", fee_percent=5),
+                Sector(name="B", fee_percent=5),
+                Sector(name="C", fee_percent=5),
+                Sector(name="D", fee_percent=5),
+                Sector(name="E", fee_percent=5),
+            ]
+            db.add_all(sectors)
+            db.commit()
+            logger.info("- Created 5 sectors (A-E)")
+
+        # 3. 상품 생성
         if db.query(Product).count() == 0:
             products = [
                 Product(
                     name="JOY 1000개 패키지",
                     joy_amount=1000,
-                    price_usdt=10.00,
-                    price_krw=13000,
+                    price_usdt=200.00,
+                    price_krw=260000,
                     sort_order=1
                 ),
                 Product(
                     name="JOY 2000개 패키지",
                     joy_amount=2000,
-                    price_usdt=19.00,
-                    price_krw=24700,
+                    price_usdt=380.00,
+                    price_krw=494000,
                     discount_rate=5,
                     sort_order=2
                 ),
                 Product(
                     name="JOY 5000개 패키지",
                     joy_amount=5000,
-                    price_usdt=45.00,
-                    price_krw=58500,
+                    price_usdt=900.00,
+                    price_krw=1170000,
                     discount_rate=10,
                     sort_order=3
                 ),
@@ -163,10 +178,10 @@ def seed_initial_data():
             db.commit()
             logger.info("- Created 3 products")
 
-        # 3. 환율 생성
+        # 4. 환율 생성
         if db.query(ExchangeRate).count() == 0:
             rate = ExchangeRate(
-                joy_to_krw=13.0,
+                joy_to_krw=260.0,
                 usdt_to_krw=1300.0,
                 is_active=True
             )
@@ -180,12 +195,21 @@ def healthz():
     return {"status": "ok"}
 
 
+@app.get("/sectors", tags=["sectors"])
+def get_sectors_public(db: Session = Depends(get_db)):
+    """회원가입 시 섹터 선택용 공개 API"""
+    sectors = db.query(Sector).order_by(Sector.name).all()
+    return [{"id": s.id, "name": s.name} for s in sectors]
+
+
 # Routers
 app.include_router(auth_router)
 app.include_router(deposits_router)
 app.include_router(admin_deposits_router)
 app.include_router(admin_users_router)
 app.include_router(admin_settings_router)
+app.include_router(admin_sectors_router)
+app.include_router(sector_dashboard_router)
 app.include_router(centers_router)
 app.include_router(products_router)
 app.include_router(notifications_router)

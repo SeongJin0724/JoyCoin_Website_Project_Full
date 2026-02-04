@@ -1,6 +1,6 @@
 # backend/app/models/user.py
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, func
+from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, Numeric, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from app.core.db import Base
 from app.core.enums import UserRole
@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.center import Center
+    from app.models.sector import Sector
     from app.models.purchase import Purchase
     from app.models.deposit_request import DepositRequest
     from app.models.point import Point
@@ -59,6 +60,17 @@ class User(Base):
         index=True
     )
     
+    # 섹터 (섹터 매니저용)
+    sector_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("sectors.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
+    # 잔액 (입금 승인 시 충전)
+    balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+
     # 권한 및 상태
     role: Mapped[str] = mapped_column(String(16), default=UserRole.USER.value, nullable=False)
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -95,6 +107,9 @@ class User(Base):
     
     # 내 센터
     center: Mapped["Center"] = relationship("Center", back_populates="users")
+
+    # 내 섹터 (섹터 매니저)
+    sector: Mapped["Sector"] = relationship("Sector", back_populates="managers")
     
     # 내 구매 내역
     purchases: Mapped[list["Purchase"]] = relationship("Purchase", back_populates="user")
