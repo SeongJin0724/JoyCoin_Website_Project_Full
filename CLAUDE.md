@@ -72,6 +72,33 @@ TELEGRAM_CHAT_ID=채팅ID
 
 ---
 
+### 3차 작업: 프론트엔드 환경 설정 및 보안 패치
+
+1. **Node.js 환경 구성**
+   - Windows 환경에서 Node.js 설치 필요
+   - PowerShell 실행 정책 문제 → CMD 사용 권장
+   - `npm install`로 의존성 설치 완료
+
+2. **TypeScript 환경 설정**
+   - `@types/node` 패키지 설치로 TypeScript 오류 해결
+   - `node_modules` 생성으로 타입 정의 파일 인식
+
+3. **Next.js 보안 패치**
+   - Next.js 14.2.5 → 14.2.35로 업그레이드
+   - Critical 보안 취약점 해결:
+     - Cache Poisoning
+     - DoS (Denial of Service)
+     - SSRF (Server-Side Request Forgery)
+     - Authorization Bypass
+   - 커밋: `e6d449d` - "fix: Next.js 보안 패치"
+
+4. **트러블슈팅 기록**
+   - Windows에서 npm 명령어 인식 안 됨 → Node.js 설치 필요
+   - PowerShell 실행 정책 오류 → CMD 터미널 사용
+   - ESLint 관련 취약점 4개 남음 (개발용 도구, 프로덕션 무관)
+
+---
+
 ## API Schemas
 
 ### Backend Centers API Response
