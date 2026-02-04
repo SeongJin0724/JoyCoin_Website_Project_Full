@@ -93,6 +93,14 @@ export default function BuyPage() {
     setMessage({ type: '', text: '' });
   };
 
+  // 주소 복사
+  const copyAddress = () => {
+    if (depositInfo?.address) {
+      navigator.clipboard.writeText(depositInfo.address);
+      alert('입금 주소가 복사되었습니다! ✅');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#020617] text-white p-8 font-sans">
       {/* 입금 정보 모달 */}
@@ -120,7 +128,15 @@ export default function BuyPage() {
             {/* 입금 정보 */}
             <div className="space-y-4">
               <div className="bg-slate-900/50 p-4 rounded-xl">
-                <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">입금 주소</p>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">입금 주소</p>
+                  <button
+                    onClick={copyAddress}
+                    className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-all px-3 py-1 bg-blue-500/10 rounded-lg hover:bg-blue-500/20"
+                  >
+                    📋 복사
+                  </button>
+                </div>
                 <p className="text-xs font-mono text-blue-300 break-all select-all">{depositInfo.address}</p>
               </div>
 
