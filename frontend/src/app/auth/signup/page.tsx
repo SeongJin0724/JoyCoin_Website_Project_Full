@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
-import { signup } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { signup, getCenters } from "@/lib/api";
 import { useRouter } from "next/navigation";
+
+type Center = { id: number; name: string; region: string };
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -12,7 +14,12 @@ export default function SignupPage() {
   const [ref, setRef] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [centers, setCenters] = useState<Center[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    getCenters().then(setCenters).catch(() => {});
+  }, []);
 
   const onSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,15 +112,17 @@ export default function SignupPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">센터 ID</label>
-              <input
-                type="number"
-                min={1}
+              <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">센터 선택</label>
+              <select
                 value={centerId}
                 onChange={e => setCenterId(e.target.value)}
                 className="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-blue-500 outline-none transition text-white"
-                placeholder="선택 (1,2,3…)"
-              />
+              >
+                <option value="">선택안함</option>
+                {centers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.region})</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-2 uppercase tracking-wider">추천인 코드</label>

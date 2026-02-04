@@ -1,11 +1,11 @@
 # backend/app/api/auth.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from app.core.db import get_db
 from app.core.security import hash_password, verify_password, create_access_token
+from app.core.auth import get_current_user
 from app.schemas.auth import SignupIn, LoginIn, Tokens
-from app.models import User, Center, Referral, Point
+from app.models import User, Center, Referral
 from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -15,22 +15,22 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def signup(data: SignupIn, db: Session = Depends(get_db)):
     # 1. 이메일 중복 체크
     if db.query(User).filter(User.email == data.email).first():
-        raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다")
+        raise HTTPException(status_code=400, detail="Email already registered")
 
     # 2. 추천인 코드 확인 (있다면)
     referrer = None
     if data.referral_code:
         referrer = db.query(User).filter(User.referral_code == data.referral_code).first()
         if not referrer:
-            raise HTTPException(status_code=400, detail="유효하지 않은 추천인 코드입니다")
+            raise HTTPException(status_code=400, detail="Invalid referral code")
 
     # 3. 센터 확인 (있다면)
     if data.center_id:
         center = db.query(Center).filter(Center.id == data.center_id).first()
         if not center:
-            raise HTTPException(status_code=400, detail="유효하지 않은 센터입니다")
+            raise HTTPException(status_code=400, detail="Invalid center")
 
-    # 4. 사용자 생성 (이메일 인증 없음 → 가입 즉시 인증 완료 처리)
+    # 4. 사용자 생성
     user = User(
         email=data.email,
         password_hash=hash_password(data.password),
@@ -41,37 +41,26 @@ def signup(data: SignupIn, db: Session = Depends(get_db)):
         is_email_verified=True,
     )
     db.add(user)
-    db.flush()  # ID 생성
+    db.flush()
 
-    # 5. 추천인 관계 기록 (Referrals 테이블)
+    # 5. 추천인 관계 기록 및 추천 보상 횟수 증가
     if referrer:
         referral = Referral(
             referrer_id=referrer.id,
             referred_id=user.id,
-            reward_points=100  # 추천 보상 100포인트
+            reward_points=0  # 실제 보상은 구매 시 지급
         )
         db.add(referral)
 
-        # 6. 추천인에게 보상 포인트 지급
-        referrer_current_balance = db.query(func.coalesce(func.sum(Point.amount), 0)).filter(
-            Point.user_id == referrer.id
-        ).scalar()
-
-        referrer_point = Point(
-            user_id=referrer.id,
-            amount=100,
-            balance_after=referrer_current_balance + 100,
-            type="referral_bonus",
-            description=f"{user.username}님 추천 보너스"
-        )
-        db.add(referrer_point)
+        # 추천인의 보상 가능 횟수 +1
+        referrer.referral_reward_remaining += 1
 
     db.commit()
 
     return {
-        "message": "회원가입 성공",
+        "message": "Registration successful",
         "user_id": user.id,
-        "referral_code": user.referral_code  # 내 추천인 코드 반환
+        "referral_code": user.referral_code
     }
 
 
@@ -81,7 +70,7 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="이메일 또는 비밀번호가 올바르지 않습니다.",
+            detail="Invalid email or password",
         )
 
     access = create_access_token(
@@ -90,3 +79,20 @@ def login(data: LoginIn, db: Session = Depends(get_db)):
         secret=settings.JWT_SECRET,
     )
     return Tokens(access=access)
+
+
+@router.get("/me")
+def get_me(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """현재 로그인된 사용자 정보 조회"""
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "referral_code": user.referral_code,
+        "role": user.role,
+        "center_id": user.center_id,
+        "total_joy": user.total_joy,
+        "total_points": user.total_points,
+        "is_email_verified": user.is_email_verified,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }

@@ -54,6 +54,13 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16), default="user", nullable=False)
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # 잔액
+    total_joy: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 누적 JOY
+    total_points: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 포인트 잔액
+
+    # 추천 보상 관련
+    referral_reward_remaining: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 남은 추천 보상 횟수
     
     # 타임스탬프
     created_at: Mapped[datetime] = mapped_column(
@@ -85,7 +92,8 @@ class User(Base):
     
     # 내 입금 요청
     deposit_requests: Mapped[list["DepositRequest"]] = relationship(
-        "DepositRequest", 
+        "DepositRequest",
+        foreign_keys="[DepositRequest.user_id]",
         back_populates="user"
     )
     

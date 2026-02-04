@@ -102,3 +102,7 @@ __pycache__/
 
 # Docker data (should not be in repo)
 deploy/docker-data/
+
+
+nul
+**/nul

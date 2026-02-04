@@ -14,6 +14,7 @@ from app.api.admin_deposits import router as admin_deposits_router
 from app.api.admin_users import router as admin_users_router
 from app.api.centers import router as centers_router
 from app.api.products import router as products_router
+from app.api.notifications import router as notifications_router
 
 from sqlalchemy.orm import Session
 from app.core.config import settings
@@ -22,7 +23,7 @@ from app.core.security import hash_password
 # 새로운 모델 import
 from app.models import (
     User, Center, Referral, Product, Purchase,
-    DepositRequest, Point, ExchangeRate
+    DepositRequest, Point, ExchangeRate, Notification
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -184,3 +185,4 @@ app.include_router(admin_deposits_router)
 app.include_router(admin_users_router)
 app.include_router(centers_router)
 app.include_router(products_router)
+app.include_router(notifications_router)

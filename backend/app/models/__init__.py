@@ -8,6 +8,7 @@ from app.models.purchase import Purchase
 from app.models.deposit_request import DepositRequest
 from app.models.point import Point
 from app.models.exchange_rate import ExchangeRate
+from app.models.notification import Notification
 
 __all__ = [
     "User",
@@ -18,4 +19,5 @@ __all__ = [
     "DepositRequest",
     "Point",
     "ExchangeRate",
+    "Notification",
 ]

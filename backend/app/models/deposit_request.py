@@ -34,9 +34,15 @@ class DepositRequest(Base):
     
     # 입금받을 관리자 지갑 주소
     assigned_address: Mapped[str] = mapped_column(String(128), nullable=False)
-    
+
+    # 입금자명 (지갑 실명)
+    sender_name: Mapped[str] = mapped_column(String(100), nullable=False)
+
     # 입금 예정 USDT
     expected_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+
+    # 구매한 JOY 수량
+    joy_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     
     # 실제 입금된 USDT (관리자가 확인 후 입력)
     actual_amount: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
@@ -72,7 +78,11 @@ class DepositRequest(Base):
     )
     
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="deposit_requests")
+    user: Mapped["User"] = relationship(
+        "User",
+        foreign_keys=[user_id],
+        back_populates="deposit_requests"
+    )
     purchase: Mapped["Purchase"] = relationship("Purchase", back_populates="deposit_requests")
     admin: Mapped["User"] = relationship(
         "User",

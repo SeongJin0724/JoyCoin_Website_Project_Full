@@ -19,5 +19,9 @@ class Settings(BaseSettings):
     SUPER_ADMIN_EMAIL: str | None = None
     SUPER_ADMIN_PASSWORD: str | None = None
 
+    # 텔레그램 알림
+    TELEGRAM_BOT_TOKEN: str | None = None
+    TELEGRAM_CHAT_ID: str | None = None
+
 
 settings = Settings()

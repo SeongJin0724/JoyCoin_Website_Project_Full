@@ -27,8 +27,12 @@ export default function LoginPage() {
       localStorage.setItem("access", res.access);
       router.push("/deposits");
     } catch (e: any) {
-      setError(e.message || "로그인 실패");
-    } finally { 
+      if (e.message?.includes("401")) {
+        setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      } else {
+        setError("로그인에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      }
+    } finally {
       setLoading(false); 
     }
   };
