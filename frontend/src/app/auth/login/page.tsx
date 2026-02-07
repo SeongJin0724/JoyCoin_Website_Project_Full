@@ -4,7 +4,6 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
-import { useAuth } from '@/lib/AuthContext';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -14,7 +13,6 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { t } = useLanguage();
-  const { refreshUser } = useAuth();
 
   useEffect(() => { if (params.get("registered") === "1") setMsg(true); }, [params]);
 
@@ -31,8 +29,7 @@ function LoginForm() {
       });
       const data = await response.json();
       if (response.ok) {
-        await refreshUser();
-        router.push('/mypage');
+        window.location.href = '/mypage';
       } else { alert(data.detail || t("loginFailed")); }
     } catch (err) { alert("Server connection failed"); }
     finally { setIsLoading(false); }
