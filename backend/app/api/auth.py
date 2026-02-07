@@ -146,6 +146,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "total_joy": int(current_user.total_joy or 0),
         "role": current_user.role,
         "referral_code": current_user.referral_code,
+        "recovery_code": current_user.recovery_code,
         "center": center_data,
     }
 
@@ -166,7 +167,7 @@ from pydantic import BaseModel, Field
 
 class ChangePasswordIn(BaseModel):
     current_password: str = Field(..., min_length=1)
-    new_password: str = Field(..., min_length=12)
+    new_password: str = Field(..., min_length=6)
 
 @router.post("/change-password")
 async def change_password(
@@ -187,3 +188,63 @@ async def change_password(
     db.commit()
 
     return {"message": "비밀번호가 성공적으로 변경되었습니다."}
+
+
+# ---------------------------------------------------------
+# 6. 이메일/닉네임 중복 확인
+# ---------------------------------------------------------
+@router.get("/check-email")
+def check_email(email: str, db: Session = Depends(get_db)):
+    """이메일 중복 확인"""
+    exists = db.query(User).filter(User.email == email).first() is not None
+    return {"exists": exists}
+
+
+@router.get("/check-username")
+def check_username(username: str, db: Session = Depends(get_db)):
+    """닉네임 중복 확인"""
+    exists = db.query(User).filter(User.username == username).first() is not None
+    return {"exists": exists}
+
+
+# ---------------------------------------------------------
+# 7. 계정 복구 (복구 코드로 이메일 찾기)
+# ---------------------------------------------------------
+class FindEmailIn(BaseModel):
+    recovery_code: str
+
+
+@router.post("/find-email")
+def find_email(data: FindEmailIn, db: Session = Depends(get_db)):
+    """복구 코드로 이메일 찾기"""
+    user = db.query(User).filter(User.recovery_code == data.recovery_code).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="해당 복구 코드를 가진 계정이 없습니다.")
+
+    # 이메일 일부 마스킹
+    email = user.email
+    at_idx = email.index("@")
+    masked_email = email[:2] + "*" * (at_idx - 2) + email[at_idx:]
+
+    return {"email": masked_email, "full_email": user.email}
+
+
+# ---------------------------------------------------------
+# 8. 계정 복구 (복구 코드로 비밀번호 재설정)
+# ---------------------------------------------------------
+class ResetPasswordIn(BaseModel):
+    recovery_code: str
+    new_password: str = Field(..., min_length=6)
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordIn, db: Session = Depends(get_db)):
+    """복구 코드로 비밀번호 재설정"""
+    user = db.query(User).filter(User.recovery_code == data.recovery_code).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="해당 복구 코드를 가진 계정이 없습니다.")
+
+    user.password_hash = hash_password(data.new_password)
+    db.commit()
+
+    return {"message": "비밀번호가 성공적으로 재설정되었습니다.", "email": user.email}

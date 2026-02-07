@@ -8,6 +8,7 @@ interface User {
   username: string;
   total_joy: number;
   referral_code?: string;
+  recovery_code?: string;
   role?: string;
 }
 

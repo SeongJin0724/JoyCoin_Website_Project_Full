@@ -19,9 +19,14 @@ export default function SignupPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailChecked, setEmailChecked] = useState(false);
+  const [nicknameChecked, setNicknameChecked] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [nicknameError, setNicknameError] = useState("");
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
   useEffect(() => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
     fetch(`${API_BASE_URL}/sectors`)
       .then(res => res.json())
       .then(data => {
@@ -32,16 +37,62 @@ export default function SignupPage() {
       .catch(() => setError(locale === 'ko' ? "섹터 정보를 가져오지 못했습니다." : "Failed to load sectors."));
   }, [locale]);
 
+  const checkEmail = async () => {
+    if (!formData.email) {
+      setEmailError(locale === 'ko' ? "이메일을 입력해주세요." : "Please enter email.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/check-email?email=${encodeURIComponent(formData.email)}`);
+      const data = await res.json();
+      if (data.exists) {
+        setEmailError(locale === 'ko' ? "이미 사용 중인 이메일입니다." : "Email already in use.");
+        setEmailChecked(false);
+      } else {
+        setEmailError("");
+        setEmailChecked(true);
+      }
+    } catch {
+      setEmailError(locale === 'ko' ? "확인 실패" : "Check failed");
+    }
+  };
+
+  const checkNickname = async () => {
+    if (!formData.nickname) {
+      setNicknameError(locale === 'ko' ? "닉네임을 입력해주세요." : "Please enter nickname.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/check-username?username=${encodeURIComponent(formData.nickname)}`);
+      const data = await res.json();
+      if (data.exists) {
+        setNicknameError(locale === 'ko' ? "이미 사용 중인 닉네임입니다." : "Nickname already in use.");
+        setNicknameChecked(false);
+      } else {
+        setNicknameError("");
+        setNicknameChecked(true);
+      }
+    } catch {
+      setNicknameError(locale === 'ko' ? "확인 실패" : "Check failed");
+    }
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirm) return setError(t("passwordMismatch"));
-    if (formData.password.length < 12) return setError(t("passwordMinLength"));
+    if (formData.password.length < 6) return setError(locale === 'ko' ? "비밀번호는 6자 이상이어야 합니다." : "Password must be at least 6 characters.");
+
+    if (!emailChecked) {
+      return setError(locale === 'ko' ? "이메일 중복 확인을 해주세요." : "Please check email availability.");
+    }
+    if (!nicknameChecked) {
+      return setError(locale === 'ko' ? "닉네임 중복 확인을 해주세요." : "Please check nickname availability.");
+    }
 
     setLoading(true);
     setError("");
 
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
       const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,6 +106,13 @@ export default function SignupPage() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        // 회원가입 성공 시 복구 코드 알림
+        alert(
+          locale === 'ko'
+            ? `회원가입 완료!\n\n중요: 계정 복구 코드가 발급되었습니다.\n마이페이지에서 복구 코드를 확인하고 안전한 곳에 보관하세요.\n이 코드로 아이디/비밀번호를 찾을 수 있습니다.`
+            : `Registration complete!\n\nImportant: A recovery code has been issued.\nPlease check your recovery code in My Page and keep it safe.\nYou can use this code to recover your account.`
+        );
         router.push('/auth/login?registered=1');
       } else {
         const data = await response.json();
@@ -70,18 +128,52 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 text-white font-sans">
       <div className="glass p-10 rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl">
-        <h1 className="text-3xl font-black italic text-center mb-10 text-blue-500 uppercase">{t("signup")}</h1>
+        <h1 className="text-3xl font-black italic text-center mb-8 text-blue-500 uppercase">{t("signup")}</h1>
+
+        {/* 복구 코드 안내 */}
+        <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+          <p className="text-xs text-yellow-400 font-semibold flex items-center gap-2">
+            <span className="text-lg">🔑</span>
+            {locale === 'ko'
+              ? "회원가입 시 고유 복구 코드가 발급됩니다. 이 코드로 아이디/비밀번호를 찾을 수 있으니 꼭 보관하세요!"
+              : "A unique recovery code will be issued upon signup. Keep it safe to recover your account!"}
+          </p>
+        </div>
 
         <form onSubmit={handleSignup} className="space-y-4">
-          <input type="text" placeholder={t("username")} required
-            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
-            value={formData.nickname} onChange={e => setFormData({...formData, nickname: e.target.value})} />
+          {/* 닉네임 */}
+          <div>
+            <div className="flex gap-2">
+              <input type="text" placeholder={t("username")} required
+                className="flex-1 bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+                value={formData.nickname}
+                onChange={e => { setFormData({...formData, nickname: e.target.value}); setNicknameChecked(false); }} />
+              <button type="button" onClick={checkNickname}
+                className="px-4 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold transition-all whitespace-nowrap">
+                {locale === 'ko' ? '중복확인' : 'Check'}
+              </button>
+            </div>
+            {nicknameError && <p className="text-red-400 text-xs mt-1">{nicknameError}</p>}
+            {nicknameChecked && !nicknameError && <p className="text-green-400 text-xs mt-1">{locale === 'ko' ? '사용 가능' : 'Available'}</p>}
+          </div>
 
-          <input type="email" placeholder={t("email")} required
-            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
-            value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+          {/* 이메일 */}
+          <div>
+            <div className="flex gap-2">
+              <input type="email" placeholder={t("email")} required
+                className="flex-1 bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+                value={formData.email}
+                onChange={e => { setFormData({...formData, email: e.target.value}); setEmailChecked(false); }} />
+              <button type="button" onClick={checkEmail}
+                className="px-4 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold transition-all whitespace-nowrap">
+                {locale === 'ko' ? '중복확인' : 'Check'}
+              </button>
+            </div>
+            {emailError && <p className="text-red-400 text-xs mt-1">{emailError}</p>}
+            {emailChecked && !emailError && <p className="text-green-400 text-xs mt-1">{locale === 'ko' ? '사용 가능' : 'Available'}</p>}
+          </div>
 
-          <input type="password" placeholder={locale === 'ko' ? "비밀번호 (12자 이상)" : "Password (12+ chars)"} required
+          <input type="password" placeholder={locale === 'ko' ? "비밀번호 (6자 이상)" : "Password (6+ chars)"} required
             className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
             value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
 
@@ -114,12 +206,20 @@ export default function SignupPage() {
             {loading ? t("loading") : t("signup").toUpperCase()}
           </button>
         </form>
-        <p className="mt-6 text-center text-slate-400 text-sm">
-          {t("alreadyHaveAccount")}{' '}
-          <Link href="/auth/login" className="text-blue-500 hover:text-blue-400 font-semibold">
-            {t("login")}
-          </Link>
-        </p>
+
+        <div className="mt-6 space-y-2 text-center">
+          <p className="text-slate-400 text-sm">
+            {t("alreadyHaveAccount")}{' '}
+            <Link href="/auth/login" className="text-blue-500 hover:text-blue-400 font-semibold">
+              {t("login")}
+            </Link>
+          </p>
+          <p className="text-slate-500 text-xs">
+            <Link href="/auth/recover" className="hover:text-slate-400">
+              {locale === 'ko' ? '아이디/비밀번호 찾기' : 'Find ID/Password'}
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

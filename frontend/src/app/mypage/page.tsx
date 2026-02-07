@@ -85,8 +85,8 @@ export default function MyPage() {
       setPasswordMessage({ type: 'error', text: locale === 'ko' ? '새 비밀번호가 일치하지 않습니다.' : 'New passwords do not match.' });
       return;
     }
-    if (newPassword.length < 12) {
-      setPasswordMessage({ type: 'error', text: locale === 'ko' ? '비밀번호는 12자 이상이어야 합니다.' : 'Password must be at least 12 characters.' });
+    if (newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: locale === 'ko' ? '비밀번호는 6자 이상이어야 합니다.' : 'Password must be at least 6 characters.' });
       return;
     }
 
@@ -201,7 +201,7 @@ export default function MyPage() {
               </div>
               <div>
                 <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-2">
-                  {locale === 'ko' ? '새 비밀번호 (12자 이상)' : 'New Password (min 12 chars)'}
+                  {locale === 'ko' ? '새 비밀번호 (6자 이상)' : 'New Password (min 6 chars)'}
                 </label>
                 <input
                   type="password"
@@ -281,6 +281,29 @@ export default function MyPage() {
                     {locale === 'ko' ? '복사' : 'COPY'}
                   </button>
                 </div>
+              </div>
+            )}
+            {user?.recovery_code && (
+              <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                <p className="text-[10px] text-yellow-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <span>🔑</span>
+                  {locale === 'ko' ? '복구 코드 (계정 찾기용)' : 'Recovery Code'}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-mono font-bold text-yellow-300">{user.recovery_code}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(user.recovery_code || '');
+                      alert(locale === 'ko' ? '복사되었습니다! 안전한 곳에 보관하세요.' : 'Copied! Keep it safe.');
+                    }}
+                    className="text-[10px] font-bold text-yellow-400 hover:text-yellow-300 px-3 py-1 bg-yellow-500/10 rounded-lg hover:bg-yellow-500/20 transition-all"
+                  >
+                    {locale === 'ko' ? '복사' : 'COPY'}
+                  </button>
+                </div>
+                <p className="text-[9px] text-yellow-600 mt-2">
+                  {locale === 'ko' ? '⚠️ 이 코드로 아이디/비밀번호를 찾을 수 있습니다. 절대 타인에게 공유하지 마세요!' : '⚠️ Use this code to recover your account. Never share it!'}
+                </p>
               </div>
             )}
             <button

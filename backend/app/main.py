@@ -29,6 +29,7 @@ from app.models import (
     User, Center, Sector, Referral, Product, Purchase,
     DepositRequest, Point, ExchangeRate, Notification
 )
+from app.models.user import generate_recovery_code
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -91,6 +92,9 @@ def on_startup():
 
     logger.info("Seeding initial data...")
     seed_initial_data()
+
+    logger.info("Generating recovery codes for existing users...")
+    generate_recovery_codes()
 
     logger.info("Application startup complete.")
 
@@ -188,6 +192,17 @@ def seed_initial_data():
             db.add(rate)
             db.commit()
             logger.info("- Created 1 exchange rate")
+
+
+def generate_recovery_codes():
+    """기존 사용자에게 복구 코드가 없으면 생성"""
+    with next(get_db()) as db:
+        users_without_code = db.query(User).filter(User.recovery_code == None).all()
+        if users_without_code:
+            for user in users_without_code:
+                user.recovery_code = generate_recovery_code()
+            db.commit()
+            logger.info(f"- Generated recovery codes for {len(users_without_code)} users")
 
 
 @app.get("/healthz")

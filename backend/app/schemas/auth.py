@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class SignupIn(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=12)
+    password: str = Field(min_length=6)
     username: str = Field(min_length=2, max_length=100)
     referral_code: str | None = None  # 추천인 코드 (선택)
     center_id: int | None = None  # 센터 ID (선택)

@@ -28,6 +28,17 @@ def generate_referral_code() -> str:
     return f"JOY{random_part}"
 
 
+def generate_recovery_code() -> str:
+    """
+    복구 코드 자동 생성 (계정 찾기용)
+    형식: RCV + 8자리 영숫자 대문자
+    예시: RCVAB12CD34
+    """
+    chars = string.ascii_uppercase + string.digits
+    random_part = ''.join(secrets.choice(chars) for _ in range(8))
+    return f"RCV{random_part}"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -39,17 +50,26 @@ class User(Base):
     
     # 추천인 시스템
     referral_code: Mapped[str] = mapped_column(
-        String(20), 
-        unique=True, 
-        index=True, 
+        String(20),
+        unique=True,
+        index=True,
         nullable=False,
         default=generate_referral_code  # 자동 생성
     )
     referred_by: Mapped[int | None] = mapped_column(
-        Integer, 
+        Integer,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True
+    )
+
+    # 복구 코드 (계정 찾기용)
+    recovery_code: Mapped[str | None] = mapped_column(
+        String(20),
+        unique=True,
+        index=True,
+        nullable=True,  # 기존 사용자를 위해 nullable
+        default=generate_recovery_code  # 자동 생성
     )
     
     # 센터 (선택사항)

@@ -12,7 +12,7 @@ function LoginForm() {
   const [msg, setMsg] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   useEffect(() => { if (params.get("registered") === "1") setMsg(true); }, [params]);
 
@@ -47,12 +47,19 @@ function LoginForm() {
             {isLoading ? t("loading") : t("login").toUpperCase()}
           </button>
         </form>
-        <p className="mt-6 text-center text-slate-400 text-sm">
-          {t("dontHaveAccount")}{' '}
-          <Link href="/auth/signup" className="text-blue-500 hover:text-blue-400 font-semibold">
-            {t("signup")}
-          </Link>
-        </p>
+        <div className="mt-6 space-y-2 text-center">
+          <p className="text-slate-400 text-sm">
+            {t("dontHaveAccount")}{' '}
+            <Link href="/auth/signup" className="text-blue-500 hover:text-blue-400 font-semibold">
+              {t("signup")}
+            </Link>
+          </p>
+          <p className="text-slate-500 text-xs">
+            <Link href="/auth/recover" className="hover:text-slate-400">
+              {locale === 'ko' ? '아이디/비밀번호 찾기' : 'Find ID/Password'}
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
