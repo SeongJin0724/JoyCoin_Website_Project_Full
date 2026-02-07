@@ -2,12 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/lib/LanguageContext';
 
 export default function BuyPage() {
   const router = useRouter();
-  
-  const [products, setProducts] = useState<any[]>([]); 
-  const [totalUsdt, setTotalUsdt] = useState(0); 
+  const { t, locale } = useLanguage();
+
+  const [products, setProducts] = useState<any[]>([]);
+  const [totalUsdt, setTotalUsdt] = useState(0);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [selectedChain, setSelectedChain] = useState("TRC20");
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,9 @@ export default function BuyPage() {
   };
 
   const handleDepositRequest = async () => {
-    if (totalUsdt <= 0) return alert("구매하실 패키지를 먼저 선택해주세요!");
+    if (totalUsdt <= 0) {
+      return alert(locale === 'ko' ? "구매하실 패키지를 먼저 선택해주세요!" : "Please select a package first!");
+    }
 
     setRequesting(true);
     setMessage({ type: '', text: '' });
@@ -58,7 +62,6 @@ export default function BuyPage() {
 
       if (response.ok) {
         const result = await response.json();
-        // 입금 정보 저장 (QR 코드 및 주소 표시용)
         setDepositInfo({
           id: result.id,
           address: result.assigned_address,
@@ -67,37 +70,35 @@ export default function BuyPage() {
         });
         setMessage({
           type: 'success',
-          text: `입금 요청이 생성되었습니다! 아래 주소로 입금해주세요.`
+          text: locale === 'ko' ? '입금 요청이 생성되었습니다! 아래 주소로 입금해주세요.' : 'Deposit request created! Please send to the address below.'
         });
-        resetSelection(); 
+        resetSelection();
 
       } else if (response.status === 401) {
-        setMessage({ type: 'error', text: "인증 세션이 만료되었습니다. 다시 로그인해주세요." });
-        setTimeout(() => router.push('/auth/login'), 2000); // 로그인으로 튕기기
+        setMessage({ type: 'error', text: locale === 'ko' ? "인증 세션이 만료되었습니다. 다시 로그인해주세요." : "Session expired. Please login again." });
+        setTimeout(() => router.push('/auth/login'), 2000);
       } else {
         const error = await response.json();
-        setMessage({ type: 'error', text: error.detail || "입금 요청 실패" });
+        setMessage({ type: 'error', text: error.detail || (locale === 'ko' ? "입금 요청 실패" : "Deposit request failed") });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: "서버 연결에 실패했습니다." });
+      setMessage({ type: 'error', text: locale === 'ko' ? "서버 연결에 실패했습니다." : "Server connection failed." });
     } finally {
       setRequesting(false);
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center font-black italic">LOADING JOY STORE...</div>;
+  if (loading) return <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center font-black italic">{t("loading").toUpperCase()}</div>;
 
-  // QR 코드 닫기
   const closeDepositInfo = () => {
     setDepositInfo(null);
     setMessage({ type: '', text: '' });
   };
 
-  // 주소 복사
   const copyAddress = () => {
     if (depositInfo?.address) {
       navigator.clipboard.writeText(depositInfo.address);
-      alert('입금 주소가 복사되었습니다! ✅');
+      alert(t("copied"));
     }
   };
 
@@ -114,7 +115,9 @@ export default function BuyPage() {
               ×
             </button>
 
-            <h2 className="text-2xl font-black italic text-blue-500 mb-8 text-center">입금 정보</h2>
+            <h2 className="text-2xl font-black italic text-blue-500 mb-8 text-center">
+              {locale === 'ko' ? '입금 정보' : 'Deposit Info'}
+            </h2>
 
             {/* QR 코드 */}
             <div className="bg-white p-6 rounded-2xl mb-6 flex justify-center">
@@ -129,12 +132,12 @@ export default function BuyPage() {
             <div className="space-y-4">
               <div className="bg-slate-900/50 p-4 rounded-xl">
                 <div className="flex justify-between items-center mb-2">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase">입금 주소</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">{t("address")}</p>
                   <button
                     onClick={copyAddress}
                     className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-all px-3 py-1 bg-blue-500/10 rounded-lg hover:bg-blue-500/20"
                   >
-                    📋 복사
+                    {t("copy")}
                   </button>
                 </div>
                 <p className="text-xs font-mono text-blue-300 break-all select-all">{depositInfo.address}</p>
@@ -142,21 +145,21 @@ export default function BuyPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-900/50 p-4 rounded-xl">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">네트워크</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">{t("chain")}</p>
                   <p className="text-sm font-black text-white">{depositInfo.chain}</p>
                 </div>
                 <div className="bg-slate-900/50 p-4 rounded-xl">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">입금 금액</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">{t("amount")}</p>
                   <p className="text-sm font-black text-white">{depositInfo.amount} USDT</p>
                 </div>
               </div>
 
               <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl text-[11px] text-yellow-400 leading-relaxed">
-                <p className="font-bold mb-2">⚠️ 주의사항</p>
+                <p className="font-bold mb-2">{locale === 'ko' ? '⚠️ 주의사항' : '⚠️ Important'}</p>
                 <ul className="list-disc list-inside space-y-1 text-[10px]">
-                  <li>반드시 위 주소로 정확한 금액을 입금해주세요</li>
-                  <li>네트워크({depositInfo.chain})를 정확히 선택해주세요</li>
-                  <li>입금 후 관리자 승인까지 최대 10분 소요됩니다</li>
+                  <li>{locale === 'ko' ? '반드시 위 주소로 정확한 금액을 입금해주세요' : 'Please send the exact amount to the address above'}</li>
+                  <li>{locale === 'ko' ? `네트워크(${depositInfo.chain})를 정확히 선택해주세요` : `Make sure to select the correct network (${depositInfo.chain})`}</li>
+                  <li>{locale === 'ko' ? '입금 후 관리자 승인까지 최대 10분 소요됩니다' : 'Approval may take up to 10 minutes after deposit'}</li>
                 </ul>
               </div>
 
@@ -164,7 +167,7 @@ export default function BuyPage() {
                 onClick={() => router.push('/mypage')}
                 className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black transition-all shadow-xl shadow-blue-900/20"
               >
-                내역 확인하러 가기
+                {locale === 'ko' ? '내역 확인하러 가기' : 'Check Deposit History'}
               </button>
             </div>
           </div>
@@ -174,25 +177,27 @@ export default function BuyPage() {
       <div className="max-w-6xl mx-auto">
 
         <div className="flex justify-between items-center mb-10">
-          <h1 className="text-4xl font-black italic text-blue-500 uppercase tracking-tighter italic">Buy Joy</h1>
-          <button 
+          <h1 className="text-4xl font-black italic text-blue-500 uppercase tracking-tighter">{t("buyJoycoin")}</h1>
+          <button
             onClick={() => router.push('/mypage')}
             className="text-xs font-bold text-slate-500 hover:text-white transition-all underline underline-offset-4"
           >
-            BACK TO MYPAGE
+            {locale === 'ko' ? '마이페이지로 돌아가기' : 'BACK TO MY PAGE'}
           </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-6">
             <div className="flex justify-between items-end">
-              <h2 className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em]">Select Packages</h2>
-              <button onClick={resetSelection} className="text-[10px] text-red-500/70 hover:text-red-500 uppercase font-bold">Reset Selection</button>
+              <h2 className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em]">{t("selectAmount")}</h2>
+              <button onClick={resetSelection} className="text-[10px] text-red-500/70 hover:text-red-500 uppercase font-bold">
+                {locale === 'ko' ? '선택 초기화' : 'Reset Selection'}
+              </button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {products.map((product) => (
-                <div 
+                <div
                   key={product.id}
                   onClick={() => handleProductClick(product)}
                   className="group cursor-pointer p-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all active:scale-[0.98]"
@@ -209,18 +214,18 @@ export default function BuyPage() {
 
           <div className="space-y-6">
             <div className="glass p-8 rounded-[2.5rem] border border-blue-500/10 shadow-2xl sticky top-8">
-              <h2 className="text-lg font-bold mb-8 text-slate-300 uppercase italic">Checkout Summary</h2>
-              
+              <h2 className="text-lg font-bold mb-8 text-slate-300 uppercase italic">{t("orderSummary")}</h2>
+
               <div className="mb-10">
-                <label className="text-[10px] font-black text-slate-500 uppercase mb-4 block tracking-widest">Deposit Network</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase mb-4 block tracking-widest">{t("chain")}</label>
                 <div className="grid grid-cols-2 gap-2">
                   {["TRC20", "ERC20", "BSC", "Polygon"].map((chain) => (
                     <button
                       key={chain}
                       onClick={() => setSelectedChain(chain)}
                       className={`py-3 rounded-xl font-bold text-xs transition-all ${
-                        selectedChain === chain 
-                        ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' 
+                        selectedChain === chain
+                        ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]'
                         : 'bg-slate-800/50 text-slate-500 hover:bg-slate-800'
                       }`}
                     >
@@ -232,12 +237,11 @@ export default function BuyPage() {
 
               <div className="space-y-4 mb-10 border-t border-slate-800/50 pt-8">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs font-bold uppercase">Total Deposit</span>
-                  {/* $ 대신 USDT로 확실히 표기 */}
+                  <span className="text-slate-500 text-xs font-bold uppercase">{t("total")}</span>
                   <span className="text-4xl font-black text-blue-500">{totalUsdt.toLocaleString()} <span className="text-xs">USDT</span></span>
                 </div>
                 <div className="bg-black/20 p-4 rounded-xl text-[10px] text-slate-600 italic break-words leading-normal min-h-[50px]">
-                  {selectedItems.length > 0 ? selectedItems.join(' + ') : 'No packages selected yet.'}
+                  {selectedItems.length > 0 ? selectedItems.join(' + ') : (locale === 'ko' ? '선택된 패키지가 없습니다.' : 'No packages selected yet.')}
                 </div>
               </div>
 
@@ -254,7 +258,7 @@ export default function BuyPage() {
                 disabled={requesting || totalUsdt === 0}
                 className="w-full py-5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-[1.5rem] font-black text-lg transition-all shadow-xl shadow-blue-900/20 active:scale-95"
               >
-                {requesting ? "PROCESSING..." : "CONFIRM DEPOSIT"}
+                {requesting ? t("loading") : (locale === 'ko' ? '입금 요청하기' : 'CONFIRM DEPOSIT')}
               </button>
             </div>
           </div>
