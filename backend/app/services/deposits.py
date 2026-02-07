@@ -14,12 +14,16 @@ def create_deposit_request(db: Session, user: User, data):
     # USDT 금액
     amt = Decimal(str(data.amount_usdt))
 
+    # JOY 수량 계산 (1 JOY = $0.2, 즉 USDT * 5 = JOY)
+    joy_amount = int(float(amt) * 5)
+
     req = DepositRequest(
         user_id=user.id,
         chain=data.chain,
         expected_amount=float(amt),
+        joy_amount=joy_amount,
         assigned_address=settings.USDT_ADMIN_ADDRESS,
-        sender_name=user.username,  # 사용자명을 입금자명으로 사용
+        sender_name=user.username,
         status="pending",
     )
     db.add(req)
@@ -31,6 +35,7 @@ def create_deposit_request(db: Session, user: User, data):
         notify_new_deposit_request(
             user_email=user.email,
             amount=float(amt),
+            joy_amount=joy_amount,
             chain=data.chain,
             deposit_id=req.id
         )

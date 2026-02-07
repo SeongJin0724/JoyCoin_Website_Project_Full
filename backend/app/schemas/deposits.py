@@ -16,6 +16,7 @@ class DepositRequestOut(BaseModel):
     chain: str
     assigned_address: str
     expected_amount: float
+    joy_amount: int = 0
     actual_amount: Optional[float] = None
     status: str
     admin_id: Optional[int] = None
@@ -42,6 +43,7 @@ class AdminDepositRequestOut(BaseModel):
     chain: str
     assigned_address: str
     expected_amount: float
+    joy_amount: int = 0
     actual_amount: Optional[float] = None
     status: str
     admin_id: Optional[int] = None

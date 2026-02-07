@@ -67,11 +67,11 @@ def approve_deposit(
     dr.status = "approved"
     dr.approved_at = datetime.utcnow()
 
-    # 5. [중요] 유저 잔액(Balance) 실제 충전 로직
+    # 5. [중요] 유저 total_joy에 구매한 JOY 수량 추가
     user = db.query(User).filter(User.id == dr.user_id).first()
     if not user:
         raise HTTPException(404, "해당 입금을 신청한 유저를 찾을 수 없습니다.")
-    user.balance = float(user.balance or 0) + float(dr.actual_amount)
+    user.total_joy = int(user.total_joy or 0) + int(dr.joy_amount or 0)
 
     db.commit()
     db.refresh(dr)
@@ -81,6 +81,7 @@ def approve_deposit(
         notify_deposit_approved(
             user_email=user.email,
             amount=dr.actual_amount,
+            joy_amount=dr.joy_amount,
             deposit_id=dr.id
         )
     except Exception as e:

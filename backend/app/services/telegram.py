@@ -36,7 +36,7 @@ def send_telegram_notification(message: str) -> bool:
         return False
 
 
-def notify_new_deposit_request(user_email: str, amount: float, chain: str, deposit_id: int):
+def notify_new_deposit_request(user_email: str, amount: float, joy_amount: int, chain: str, deposit_id: int):
     """
     새로운 입금 요청 알림
     """
@@ -44,7 +44,8 @@ def notify_new_deposit_request(user_email: str, amount: float, chain: str, depos
 🔔 <b>새로운 입금 요청</b>
 
 👤 유저: {user_email}
-💰 금액: {amount} USDT
+💰 입금액: {amount} USDT
+🪙 JOY 수량: {joy_amount:,} JOY
 🌐 네트워크: {chain}
 🆔 요청 ID: #{deposit_id}
 
@@ -53,7 +54,7 @@ def notify_new_deposit_request(user_email: str, amount: float, chain: str, depos
     return send_telegram_notification(message)
 
 
-def notify_deposit_approved(user_email: str, amount: float, deposit_id: int):
+def notify_deposit_approved(user_email: str, amount: float, joy_amount: int, deposit_id: int):
     """
     입금 승인 완료 알림
     """
@@ -61,9 +62,10 @@ def notify_deposit_approved(user_email: str, amount: float, deposit_id: int):
 ✅ <b>입금 승인 완료</b>
 
 👤 유저: {user_email}
-💰 금액: {amount} USDT
+💰 입금액: {amount} USDT
+🪙 JOY 수량: {joy_amount:,} JOY
 🆔 요청 ID: #{deposit_id}
 
-사용자 잔액에 충전되었습니다.
+사용자에게 JOY 코인을 전송하세요!
 """
     return send_telegram_notification(message)

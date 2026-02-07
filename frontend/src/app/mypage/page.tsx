@@ -108,7 +108,7 @@ export default function MyPage() {
 
           <div className="glass p-8 rounded-[2rem] border border-blue-500/10 shadow-xl bg-gradient-to-br from-blue-600/20 to-transparent">
             <h2 className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.3em] mb-4">{t("totalJoy")}</h2>
-            <p className="text-4xl font-black text-blue-400 mb-6">{user?.balance?.toLocaleString() || '0'} <span className="text-xs">JOY</span></p>
+            <p className="text-4xl font-black text-blue-400 mb-6">{user?.total_joy?.toLocaleString() || '0'} <span className="text-xs">JOY</span></p>
             <button
               onClick={() => router.push('/buy')}
               className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-black text-sm transition-all shadow-lg shadow-blue-900/30"
@@ -128,6 +128,7 @@ export default function MyPage() {
                 <tr className="text-[10px] text-slate-600 uppercase border-b border-slate-800">
                   <th className="pb-4 font-black">ID</th>
                   <th className="pb-4 font-black">{t("amount")}</th>
+                  <th className="pb-4 font-black">JOY</th>
                   <th className="pb-4 font-black">{t("chain")}</th>
                   <th className="pb-4 font-black">{t("status")}</th>
                   <th className="pb-4 font-black text-right">{t("requestTime")}</th>
@@ -139,6 +140,7 @@ export default function MyPage() {
                     <tr key={dep.id} className="border-b border-slate-800/30 hover:bg-white/5 transition-colors">
                       <td className="py-4 font-mono text-slate-500">{dep.id.toString().slice(0, 8)}</td>
                       <td className="py-4 font-black">{dep.expected_amount} USDT</td>
+                      <td className="py-4 font-black text-blue-400">{(dep.joy_amount || 0).toLocaleString()} JOY</td>
                       <td className="py-4 text-slate-400">{dep.chain}</td>
                       <td className="py-4">{getStatusBadge(dep.status)}</td>
                       <td className="py-4 text-right text-slate-500">
@@ -148,7 +150,7 @@ export default function MyPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-20 text-center text-slate-600 italic">
+                    <td colSpan={6} className="py-20 text-center text-slate-600 italic">
                       {t("noDeposits")}
                     </td>
                   </tr>

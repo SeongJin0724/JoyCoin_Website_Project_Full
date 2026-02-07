@@ -16,6 +16,7 @@ interface DepositRequest {
   user: { id: number; email: string; username: string };
   chain: string;
   expected_amount: number;
+  joy_amount: number;
   actual_amount: number | null;
   status: string;
   created_at: string;
@@ -78,7 +79,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({ admin_notes: '승인 완료' })
       });
       if (!response.ok) { const e = await response.json(); throw new Error(e.detail || '승인 실패'); }
-      alert('승인 완료. 유저 잔액이 충전되었습니다.');
+      alert('승인 완료. 사용자에게 JOY 코인을 전송하세요!');
       fetchDeposits();
     } catch (err: any) { alert(err.message); }
     finally { setProcessingId(null); }
@@ -260,6 +261,7 @@ export default function AdminDashboard() {
                           <th className="p-5">유저</th>
                           <th className="p-5">네트워크</th>
                           <th className="p-5 text-right">금액</th>
+                          <th className="p-5 text-right">JOY 수량</th>
                           <th className="p-5 text-center">상태</th>
                           <th className="p-5 text-center">요청일시</th>
                           <th className="p-5 text-right">액션</th>
@@ -277,6 +279,7 @@ export default function AdminDashboard() {
                               <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] text-blue-400 font-black uppercase italic">{req.chain}</span>
                             </td>
                             <td className="p-5 text-right font-mono italic text-slate-300">{req.expected_amount.toLocaleString()} USDT</td>
+                            <td className="p-5 text-right font-mono italic text-blue-400">{(req.joy_amount || 0).toLocaleString()} JOY</td>
                             <td className="p-5 text-center">{getStatusBadge(req.status)}</td>
                             <td className="p-5 text-center text-slate-500 text-xs">{new Date(req.created_at).toLocaleString('ko-KR')}</td>
                             <td className="p-5 text-right">

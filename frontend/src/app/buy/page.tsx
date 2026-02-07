@@ -15,7 +15,7 @@ export default function BuyPage() {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [depositInfo, setDepositInfo] = useState<{ id: number; address: string; amount: number; chain: string } | null>(null);
+  const [depositInfo, setDepositInfo] = useState<{ id: number; address: string; amount: number; joyAmount: number; chain: string } | null>(null);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
@@ -66,6 +66,7 @@ export default function BuyPage() {
           id: result.id,
           address: result.assigned_address,
           amount: totalUsdt,
+          joyAmount: result.joy_amount || totalUsdt * 5,
           chain: selectedChain
         });
         setMessage({
@@ -143,7 +144,7 @@ export default function BuyPage() {
                 <p className="text-xs font-mono text-blue-300 break-all select-all">{depositInfo.address}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-900/50 p-4 rounded-xl">
                   <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">{t("chain")}</p>
                   <p className="text-sm font-black text-white">{depositInfo.chain}</p>
@@ -151,6 +152,10 @@ export default function BuyPage() {
                 <div className="bg-slate-900/50 p-4 rounded-xl">
                   <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">{t("amount")}</p>
                   <p className="text-sm font-black text-white">{depositInfo.amount} USDT</p>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl">
+                  <p className="text-[10px] text-blue-400 font-bold uppercase mb-2">JOY</p>
+                  <p className="text-sm font-black text-blue-400">{depositInfo.joyAmount.toLocaleString()}</p>
                 </div>
               </div>
 
@@ -204,8 +209,13 @@ export default function BuyPage() {
                 >
                   <h3 className="text-2xl font-black mb-2 group-hover:text-blue-400 transition-colors">{product.name}</h3>
                   <p className="text-slate-500 text-xs mb-8 leading-relaxed">{product.description}</p>
-                  <div className="text-3xl font-black text-white">
-                    {product.price_usdt} <span className="text-sm text-blue-500 font-bold ml-1">USDT</span>
+                  <div className="flex justify-between items-end">
+                    <div className="text-3xl font-black text-white">
+                      {product.price_usdt} <span className="text-sm text-blue-500 font-bold ml-1">USDT</span>
+                    </div>
+                    <div className="text-lg font-black text-blue-400">
+                      = {(product.price_usdt * 5).toLocaleString()} <span className="text-xs">JOY</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -239,6 +249,10 @@ export default function BuyPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 text-xs font-bold uppercase">{t("total")}</span>
                   <span className="text-4xl font-black text-blue-500">{totalUsdt.toLocaleString()} <span className="text-xs">USDT</span></span>
+                </div>
+                <div className="flex justify-between items-center bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
+                  <span className="text-blue-400 text-xs font-bold uppercase">{locale === 'ko' ? '받을 JOY' : 'JOY TO RECEIVE'}</span>
+                  <span className="text-2xl font-black text-blue-400">{(totalUsdt * 5).toLocaleString()} <span className="text-xs">JOY</span></span>
                 </div>
                 <div className="bg-black/20 p-4 rounded-xl text-[10px] text-slate-600 italic break-words leading-normal min-h-[50px]">
                   {selectedItems.length > 0 ? selectedItems.join(' + ') : (locale === 'ko' ? '선택된 패키지가 없습니다.' : 'No packages selected yet.')}
