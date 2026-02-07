@@ -19,6 +19,7 @@ def create_deposit_request(db: Session, user: User, data):
         chain=data.chain,
         expected_amount=float(amt),
         assigned_address=settings.USDT_ADMIN_ADDRESS,
+        sender_name=user.username,  # 사용자명을 입금자명으로 사용
         status="pending",
     )
     db.add(req)
