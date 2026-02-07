@@ -1,6 +1,11 @@
+"use client";
+
 import Link from 'next/link';
+import { useLanguage } from '@/lib/LanguageContext';
 
 export default function Page() {
+  const { t, locale } = useLanguage();
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center space-y-12 px-6 py-20 relative min-h-[calc(100vh-80px)]">
 
@@ -20,11 +25,11 @@ export default function Page() {
             href="/auth/login"
             className="h-24 flex items-center justify-center glass hover:bg-white/10 text-white font-black text-xl rounded-3xl transition-all border border-white/20 shadow-2xl"
           >
-            로그인
+            {t("login")}
           </Link>
           {/* 어드민 로그인: 연회색으로 아래 배치 */}
           <Link href="/admin/login" className="text-slate-500 hover:text-slate-400 text-[10px] font-bold uppercase tracking-widest text-center transition-colors">
-            admin login
+            {locale === 'ko' ? '관리자 로그인' : 'ADMIN LOGIN'}
           </Link>
         </div>
 
@@ -33,7 +38,7 @@ export default function Page() {
           href="/auth/signup"
           className="flex-1 h-24 flex items-center justify-center glass hover:bg-white/10 text-white font-black text-xl rounded-3xl transition-all border border-white/20 shadow-2xl"
         >
-          회원가입
+          {t("signup")}
         </Link>
 
         {/* ACTIVATE JOYCOIN 버튼 */}
@@ -41,7 +46,7 @@ export default function Page() {
           href="/buy"
           className="flex-1 h-24 flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-700 hover:from-blue-400 hover:to-indigo-600 text-white font-black text-xl rounded-3xl shadow-2xl shadow-blue-500/40 transition-all text-center px-4 leading-tight"
         >
-          ACTIVATE<br/>JOYCOIN
+          {locale === 'ko' ? '조이코인\n구매하기' : 'BUY\nJOYCOIN'}
         </Link>
 
       </div>
