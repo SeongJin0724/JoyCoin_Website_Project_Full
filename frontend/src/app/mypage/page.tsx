@@ -53,7 +53,7 @@ export default function MyPage() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/auth/login');
+    window.location.href = '/';
   };
 
   if (authLoading || loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white font-black italic">{t("loading").toUpperCase()}</div>;
