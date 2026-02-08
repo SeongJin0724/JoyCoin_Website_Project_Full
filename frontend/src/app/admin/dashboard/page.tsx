@@ -50,10 +50,14 @@ export default function AdminDashboard() {
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'deposits' | 'sectors' | 'users'>('deposits');
+  const [activeTab, setActiveTab] = useState<'deposits' | 'sectors' | 'users' | 'products'>('deposits');
   const [users, setUsers] = useState<UserItem[]>([]);
   const [userSearch, setUserSearch] = useState('');
   const [userProcessingId, setUserProcessingId] = useState<number | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [productForm, setProductForm] = useState({ name: '', joy_amount: 0, price_usdt: 0, price_krw: 0, discount_rate: 0, description: '', sort_order: 0 });
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
@@ -61,6 +65,7 @@ export default function AdminDashboard() {
     fetchDeposits();
     fetchSectors();
     fetchUsers();
+    fetchProducts();
   }, []);
 
   const fetchDeposits = async () => {
@@ -119,6 +124,45 @@ export default function AdminDashboard() {
       fetchUsers();
     } catch (err: any) { alert(err.message); }
     finally { setUserProcessingId(null); }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/products/admin/all`, { credentials: 'include' });
+      if (response.ok) setProducts(await response.json());
+    } catch (err) { console.error("상품 로드 실패:", err); }
+  };
+
+  const openProductForm = (product?: any) => {
+    if (product) {
+      setEditingProduct(product);
+      setProductForm({ name: product.name, joy_amount: product.joy_amount, price_usdt: product.price_usdt, price_krw: product.price_krw || 0, discount_rate: product.discount_rate || 0, description: product.description || '', sort_order: product.sort_order || 0 });
+    } else {
+      setEditingProduct(null);
+      setProductForm({ name: '', joy_amount: 0, price_usdt: 0, price_krw: 0, discount_rate: 0, description: '', sort_order: 0 });
+    }
+    setShowProductForm(true);
+  };
+
+  const handleProductSave = async () => {
+    try {
+      const url = editingProduct ? `${API_BASE_URL}/products/admin/${editingProduct.id}` : `${API_BASE_URL}/products/admin`;
+      const method = editingProduct ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(productForm) });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+      setShowProductForm(false);
+      fetchProducts();
+    } catch (err: any) { alert(err.message); }
+  };
+
+  const handleProductToggle = async (id: number, isActive: boolean) => {
+    const url = isActive ? `${API_BASE_URL}/products/admin/${id}` : `${API_BASE_URL}/products/admin/${id}/activate`;
+    const method = isActive ? 'DELETE' : 'POST';
+    try {
+      const res = await fetch(url, { method, credentials: 'include' });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+      fetchProducts();
+    } catch (err: any) { alert(err.message); }
   };
 
   const handleApprove = async (id: number, userEmail: string) => {
@@ -245,6 +289,12 @@ export default function AdminDashboard() {
             사용자 관리
           </button>
           <button
+            onClick={() => setActiveTab('products')}
+            className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'products' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
+          >
+            상품 관리
+          </button>
+          <button
             onClick={() => setActiveTab('sectors')}
             className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'sectors' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
           >
@@ -365,6 +415,87 @@ export default function AdminDashboard() {
                 )}
               </div>
               <p className="text-slate-600 text-[10px] text-right">총 {filteredRequests.length}건</p>
+            </>
+          ) : activeTab === 'products' ? (
+            /* 상품 관리 탭 */
+            <>
+              {showProductForm && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                  <div className="bg-slate-900 p-8 rounded-3xl w-full max-w-lg border border-blue-500/20 shadow-2xl relative">
+                    <button onClick={() => setShowProductForm(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white text-2xl">×</button>
+                    <h2 className="text-xl font-black text-blue-400 mb-6">{editingProduct ? '상품 수정' : '새 상품 추가'}</h2>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs text-slate-400 font-bold">상품명</label>
+                        <input value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white mt-1" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs text-slate-400 font-bold">JOY 수량</label>
+                          <input type="number" value={productForm.joy_amount} onChange={e => setProductForm({...productForm, joy_amount: Number(e.target.value)})}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white mt-1" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-bold">가격 (USDT)</label>
+                          <input type="number" step="0.01" value={productForm.price_usdt} onChange={e => setProductForm({...productForm, price_usdt: Number(e.target.value)})}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white mt-1" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs text-slate-400 font-bold">가격 (KRW)</label>
+                          <input type="number" value={productForm.price_krw} onChange={e => setProductForm({...productForm, price_krw: Number(e.target.value)})}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white mt-1" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-bold">할인율 (%)</label>
+                          <input type="number" value={productForm.discount_rate} onChange={e => setProductForm({...productForm, discount_rate: Number(e.target.value)})}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white mt-1" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 font-bold">설명</label>
+                        <input value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white mt-1" />
+                      </div>
+                      <button onClick={handleProductSave} className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-lg transition-all">
+                        {editingProduct ? '수정' : '추가'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-between items-center">
+                <h2 className="text-slate-400 text-xs font-black uppercase tracking-[0.3em] italic">상품 패키지 관리</h2>
+                <button onClick={() => openProductForm()} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-black text-white transition-all">
+                  + 새 상품
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {products.map(p => (
+                  <div key={p.id} className={`p-6 rounded-2xl border bg-slate-900/40 space-y-3 ${p.is_active ? 'border-white/5' : 'border-red-500/20 opacity-60'}`}>
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-lg font-black text-white">{p.name}</h3>
+                      {!p.is_active && <span className="px-2 py-1 bg-red-500/10 text-red-400 text-[10px] font-black rounded-full">비활성</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-slate-500 text-xs">JOY</span><p className="font-bold text-blue-400">{p.joy_amount.toLocaleString()}</p></div>
+                      <div><span className="text-slate-500 text-xs">USDT</span><p className="font-bold">{p.price_usdt}</p></div>
+                      <div><span className="text-slate-500 text-xs">KRW</span><p className="font-bold text-slate-300">{(p.price_krw || 0).toLocaleString()}</p></div>
+                      <div><span className="text-slate-500 text-xs">할인</span><p className="font-bold text-green-400">{p.discount_rate}%</p></div>
+                    </div>
+                    {p.description && <p className="text-xs text-slate-500">{p.description}</p>}
+                    <div className="flex gap-2 pt-2">
+                      <button onClick={() => openProductForm(p)} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-bold text-white transition-all">수정</button>
+                      <button onClick={() => handleProductToggle(p.id, p.is_active)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${p.is_active ? 'bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white' : 'bg-green-600/20 text-green-400 hover:bg-green-600 hover:text-white'}`}>
+                        {p.is_active ? '비활성화' : '활성화'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           ) : activeTab === 'users' ? (
             /* 사용자 관리 탭 */
