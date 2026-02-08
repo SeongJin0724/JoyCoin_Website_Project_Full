@@ -128,7 +128,7 @@ export default function BuyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-8">
+    <div className="min-h-screen bg-[#020617] text-white p-6 pb-24 md:p-8 md:pb-24">
       {/* 입금 정보 모달 */}
       {depositInfo && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">

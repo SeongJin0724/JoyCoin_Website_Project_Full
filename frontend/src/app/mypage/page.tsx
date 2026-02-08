@@ -124,7 +124,7 @@ export default function MyPage() {
   if (authLoading || loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white font-black italic">{t("loading").toUpperCase()}</div>;
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-8 font-sans">
+    <div className="min-h-screen bg-[#020617] text-white p-8 pb-24 font-sans">
       {/* 알림 모달 */}
       {showNotifications && notifications.length > 0 && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">

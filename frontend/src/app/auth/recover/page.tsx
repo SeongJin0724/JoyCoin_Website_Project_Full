@@ -92,7 +92,7 @@ export default function RecoverPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 text-white font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 py-24 text-white font-sans">
       <div className="glass p-10 rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl">
         <h1 className="text-2xl font-black italic text-center mb-8 text-blue-500 uppercase">
           {locale === 'ko' ? '계정 복구' : 'Account Recovery'}

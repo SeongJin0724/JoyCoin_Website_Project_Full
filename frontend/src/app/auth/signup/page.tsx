@@ -126,7 +126,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 text-white font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 py-24 text-white font-sans">
       <div className="glass p-10 rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl">
         <h1 className="text-3xl font-black italic text-center mb-8 text-blue-500 uppercase">{t("signup")}</h1>
 
