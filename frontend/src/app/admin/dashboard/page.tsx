@@ -29,6 +29,17 @@ interface Sector {
   fee_percent: number;
 }
 
+interface UserItem {
+  id: number;
+  email: string;
+  username: string;
+  role: string;
+  total_joy: number;
+  is_banned: boolean;
+  sector_id: number | null;
+  created_at: string | null;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
 
@@ -39,13 +50,17 @@ export default function AdminDashboard() {
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'deposits' | 'sectors'>('deposits');
+  const [activeTab, setActiveTab] = useState<'deposits' | 'sectors' | 'users'>('deposits');
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [userProcessingId, setUserProcessingId] = useState<number | null>(null);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
   useEffect(() => {
     fetchDeposits();
     fetchSectors();
+    fetchUsers();
   }, []);
 
   const fetchDeposits = async () => {
@@ -68,6 +83,42 @@ export default function AdminDashboard() {
       const response = await fetch(`${API_BASE_URL}/admin/sectors`, { credentials: 'include' });
       if (response.ok) setSectors(await response.json());
     } catch (err) { console.error("섹터 로드 실패:", err); }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data.items || []);
+      }
+    } catch (err) { console.error("유저 로드 실패:", err); }
+  };
+
+  const handleBan = async (userId: number, isBanned: boolean) => {
+    const action = isBanned ? 'unban' : 'ban';
+    const msg = isBanned ? '차단을 해제하시겠습니까?' : '이 유저를 차단하시겠습니까?';
+    if (!confirm(msg)) return;
+    try {
+      setUserProcessingId(userId);
+      const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/${action}`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+      fetchUsers();
+    } catch (err: any) { alert(err.message); }
+    finally { setUserProcessingId(null); }
+  };
+
+  const handleRoleChange = async (userId: number, currentRole: string) => {
+    const action = currentRole === 'admin' ? 'demote' : 'promote';
+    const msg = currentRole === 'admin' ? '일반 유저로 변경하시겠습니까?' : '관리자로 승격하시겠습니까?';
+    if (!confirm(msg)) return;
+    try {
+      setUserProcessingId(userId);
+      const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/${action}`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+      fetchUsers();
+    } catch (err: any) { alert(err.message); }
+    finally { setUserProcessingId(null); }
   };
 
   const handleApprove = async (id: number, userEmail: string) => {
@@ -186,6 +237,12 @@ export default function AdminDashboard() {
             className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'deposits' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
           >
             입금 요청 관리
+          </button>
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'users' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
+          >
+            사용자 관리
           </button>
           <button
             onClick={() => setActiveTab('sectors')}
@@ -308,6 +365,108 @@ export default function AdminDashboard() {
                 )}
               </div>
               <p className="text-slate-600 text-[10px] text-right">총 {filteredRequests.length}건</p>
+            </>
+          ) : activeTab === 'users' ? (
+            /* 사용자 관리 탭 */
+            <>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
+                  <p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">전체 유저</p>
+                  <p className="text-3xl font-black italic mt-2">{users.length}</p>
+                </div>
+                <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
+                  <p className="text-yellow-500 text-[10px] font-black uppercase tracking-widest">관리자</p>
+                  <p className="text-3xl font-black italic mt-2">{users.filter(u => u.role === 'admin').length}</p>
+                </div>
+                <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
+                  <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">차단됨</p>
+                  <p className="text-3xl font-black italic mt-2">{users.filter(u => u.is_banned).length}</p>
+                </div>
+              </div>
+
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="이메일 또는 유저명으로 검색..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50"
+                />
+              </div>
+
+              <div className="rounded-2xl overflow-hidden border border-white/5 bg-slate-900/20">
+                <div className="max-h-[50vh] overflow-y-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-white/5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] sticky top-0 z-10">
+                      <tr>
+                        <th className="p-5">ID</th>
+                        <th className="p-5">이메일</th>
+                        <th className="p-5">유저명</th>
+                        <th className="p-5 text-center">권한</th>
+                        <th className="p-5 text-right">JOY</th>
+                        <th className="p-5 text-center">상태</th>
+                        <th className="p-5 text-center">가입일</th>
+                        <th className="p-5 text-right">액션</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm font-bold">
+                      {users
+                        .filter(u => !userSearch ||
+                          u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+                          u.username.toLowerCase().includes(userSearch.toLowerCase())
+                        )
+                        .map((u) => (
+                        <tr key={u.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
+                          <td className="p-5 font-mono text-xs text-slate-500">#{u.id}</td>
+                          <td className="p-5 font-mono text-xs text-blue-300">{maskEmail(u.email)}</td>
+                          <td className="p-5 text-xs text-slate-300">{u.username}</td>
+                          <td className="p-5 text-center">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
+                              u.role === 'admin' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                              u.role === 'sector_manager' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' :
+                              'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                            }`}>
+                              {u.role === 'admin' ? '관리자' : u.role === 'sector_manager' ? '섹터매니저' : '유저'}
+                            </span>
+                          </td>
+                          <td className="p-5 text-right font-mono italic text-blue-400">{(u.total_joy || 0).toLocaleString()}</td>
+                          <td className="p-5 text-center">
+                            {u.is_banned ? (
+                              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase border bg-red-500/10 text-red-400 border-red-500/20">차단됨</span>
+                            ) : (
+                              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase border bg-green-500/10 text-green-400 border-green-500/20">정상</span>
+                            )}
+                          </td>
+                          <td className="p-5 text-center text-slate-500 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString('ko-KR') : '-'}</td>
+                          <td className="p-5 text-right">
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => handleBan(u.id, u.is_banned)}
+                                disabled={u.role === 'admin' || userProcessingId === u.id}
+                                className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all uppercase disabled:opacity-30 ${
+                                  u.is_banned ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-red-600 hover:bg-red-500 text-white'
+                                }`}
+                              >
+                                {u.is_banned ? '해제' : '차단'}
+                              </button>
+                              <button
+                                onClick={() => handleRoleChange(u.id, u.role)}
+                                disabled={userProcessingId === u.id}
+                                className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all uppercase ${
+                                  u.role === 'admin' ? 'bg-slate-600 hover:bg-slate-500 text-white' : 'bg-yellow-600 hover:bg-yellow-500 text-white'
+                                }`}
+                              >
+                                {u.role === 'admin' ? '강등' : '승격'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="text-slate-600 text-[10px] text-right">총 {users.filter(u => !userSearch || u.email.toLowerCase().includes(userSearch.toLowerCase()) || u.username.toLowerCase().includes(userSearch.toLowerCase())).length}건</p>
             </>
           ) : (
             /* 섹터 Fee 설정 탭 */

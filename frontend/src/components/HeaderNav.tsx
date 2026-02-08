@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 export default function HeaderNav() {
   const { locale, setLocale, t } = useLanguage();
-  const { isLoggedIn, isLoading, logout } = useAuth();
+  const { user, isLoggedIn, isLoading, logout } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -25,6 +25,16 @@ export default function HeaderNav() {
             <a href="/buy" className="hover:text-blue-400 transition-colors">
               {t("buy")}
             </a>
+            {user?.role === 'admin' && (
+              <a href="/admin/dashboard" className="text-yellow-400 hover:text-yellow-300 transition-colors">
+                {locale === 'ko' ? '관리자' : 'Admin'}
+              </a>
+            )}
+            {user?.role === 'sector_manager' && (
+              <a href="/sector/dashboard" className="text-cyan-400 hover:text-cyan-300 transition-colors">
+                {locale === 'ko' ? '섹터관리' : 'Sector'}
+              </a>
+            )}
             <button onClick={handleLogout} className="hover:text-red-400 transition-colors">
               {t("logout")}
             </button>
