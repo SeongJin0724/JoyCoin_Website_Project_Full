@@ -58,6 +58,7 @@ export default function AdminDashboard() {
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [productForm, setProductForm] = useState({ name: '', joy_amount: 0, price_usdt: 0, price_krw: 0, discount_rate: 0, description: '', sort_order: 0 });
+  const [referralBonus, setReferralBonus] = useState(100);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
@@ -66,6 +67,7 @@ export default function AdminDashboard() {
     fetchSectors();
     fetchUsers();
     fetchProducts();
+    fetchSettings();
   }, []);
 
   const fetchDeposits = async () => {
@@ -88,6 +90,28 @@ export default function AdminDashboard() {
       const response = await fetch(`${API_BASE_URL}/admin/sectors`, { credentials: 'include' });
       if (response.ok) setSectors(await response.json());
     } catch (err) { console.error("섹터 로드 실패:", err); }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/settings`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setReferralBonus(data.referral_bonus_points);
+      }
+    } catch {}
+  };
+
+  const handleReferralBonusChange = async (points: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/settings/referral-bonus`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ referral_bonus_points: points })
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
+      setReferralBonus(points);
+      alert(`추천인 보너스가 ${points} 포인트로 변경되었습니다.`);
+    } catch (err: any) { alert(err.message); }
   };
 
   const fetchUsers = async () => {
@@ -601,31 +625,62 @@ export default function AdminDashboard() {
             </>
           ) : (
             /* 섹터 Fee 설정 탭 */
-            <div className="space-y-6">
-              <h2 className="text-slate-400 text-xs font-black uppercase tracking-[0.3em] italic">섹터별 Fee 설정</h2>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                {sectors.map(sector => (
-                  <div key={sector.id} className="p-6 rounded-2xl border border-white/5 bg-slate-900/40 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-2xl font-black italic text-blue-400">Sector {sector.name}</h3>
-                      <span className="text-xl font-black text-green-400">{sector.fee_percent}%</span>
+            <div className="space-y-8">
+              {/* 추천인 보너스 설정 */}
+              <div className="space-y-4">
+                <h2 className="text-slate-400 text-xs font-black uppercase tracking-[0.3em] italic">추천인 보너스 설정</h2>
+                <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="text-lg font-black text-white">추천인 보너스 포인트</h3>
+                      <p className="text-xs text-slate-500 mt-1">신규 회원 가입 시 추천인에게 지급되는 포인트</p>
                     </div>
-                    <div className="grid grid-cols-4 gap-1">
-                      {[5, 10, 15, 20].map(fee => (
-                        <button
-                          key={fee}
-                          onClick={() => handleFeeChange(sector.id, fee)}
-                          className={`py-2 rounded-lg text-xs font-black transition-all ${sector.fee_percent === fee
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-white'
-                          }`}
-                        >
-                          {fee}%
-                        </button>
-                      ))}
-                    </div>
+                    <span className="text-3xl font-black italic text-green-400">{referralBonus}P</span>
                   </div>
-                ))}
+                  <div className="grid grid-cols-5 gap-2">
+                    {[50, 100, 150, 200, 500].map(pts => (
+                      <button
+                        key={pts}
+                        onClick={() => handleReferralBonusChange(pts)}
+                        className={`py-3 rounded-xl text-sm font-black transition-all ${referralBonus === pts
+                          ? 'bg-green-600 text-white'
+                          : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-white'
+                        }`}
+                      >
+                        {pts}P
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 섹터별 Fee */}
+              <div className="space-y-4">
+                <h2 className="text-slate-400 text-xs font-black uppercase tracking-[0.3em] italic">섹터별 Fee 설정</h2>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  {sectors.map(sector => (
+                    <div key={sector.id} className="p-6 rounded-2xl border border-white/5 bg-slate-900/40 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-2xl font-black italic text-blue-400">Sector {sector.name}</h3>
+                        <span className="text-xl font-black text-green-400">{sector.fee_percent}%</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[5, 10, 15, 20].map(fee => (
+                          <button
+                            key={fee}
+                            onClick={() => handleFeeChange(sector.id, fee)}
+                            className={`py-2 rounded-lg text-xs font-black transition-all ${sector.fee_percent === fee
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-white'
+                            }`}
+                          >
+                            {fee}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

@@ -4,7 +4,7 @@ from sqlalchemy import func
 from app.core.db import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.schemas.auth import SignupIn, LoginIn, Tokens
-from app.models import User, Center, Referral, Point, Sector
+from app.models import User, Center, Referral, Point, Sector, ExchangeRate
 from app.core.config import settings
 from jose import jwt, JWTError # 토큰 해독을 위해 필요
 
@@ -71,10 +71,14 @@ def signup(data: SignupIn, db: Session = Depends(get_db)):
     db.flush()
 
     if referrer:
+        # DB에서 추천인 보너스 포인트 조회 (관리자가 설정 가능)
+        rate = db.query(ExchangeRate).filter(ExchangeRate.is_active == True).first()
+        bonus_points = rate.referral_bonus_points if rate else 100
+
         referral = Referral(
             referrer_id=referrer.id,
             referred_id=user.id,
-            reward_points=100
+            reward_points=bonus_points
         )
         db.add(referral)
         referrer_current_balance = db.query(func.coalesce(func.sum(Point.amount), 0)).filter(
@@ -82,8 +86,8 @@ def signup(data: SignupIn, db: Session = Depends(get_db)):
         ).scalar()
         referrer_point = Point(
             user_id=referrer.id,
-            amount=100,
-            balance_after=referrer_current_balance + 100,
+            amount=bonus_points,
+            balance_after=referrer_current_balance + bonus_points,
             type="referral_bonus",
             description=f"{user.username}님 추천 보너스"
         )

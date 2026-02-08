@@ -16,6 +16,9 @@ class ExchangeRate(Base):
     # USDT/KRW 환율 (1 USDT = ? KRW)
     usdt_to_krw: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     
+    # 추천인 보너스 포인트
+    referral_bonus_points: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+
     # 현재 활성화된 환율인지
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
