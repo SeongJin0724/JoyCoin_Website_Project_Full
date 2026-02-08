@@ -13,7 +13,7 @@ const maskEmail = (email: string) => {
 // --- [Types] ---
 interface DepositRequest {
   id: number;
-  user: { id: number; email: string; username: string };
+  user: { id: number; email: string; username: string; sector_id: number | null };
   chain: string;
   expected_amount: number;
   joy_amount: number;
@@ -27,6 +27,17 @@ interface Sector {
   id: number;
   name: string;
   fee_percent: number;
+}
+
+interface Stats {
+  total_users: number;
+  total_deposits: number;
+  total_approved_usdt: number;
+  total_approved_joy: number;
+  pending_count: number;
+  approved_count: number;
+  rejected_count: number;
+  sector_stats: { sector_id: number; deposit_count: number; total_usdt: number }[];
 }
 
 interface UserItem {
@@ -59,6 +70,8 @@ export default function AdminDashboard() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [productForm, setProductForm] = useState({ name: '', joy_amount: 0, price_usdt: 0, price_krw: 0, discount_rate: 0, description: '', sort_order: 0 });
   const [referralBonus, setReferralBonus] = useState(100);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [sectorFilter, setSectorFilter] = useState<string>('all');
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
@@ -68,6 +81,7 @@ export default function AdminDashboard() {
     fetchUsers();
     fetchProducts();
     fetchSettings();
+    fetchStats();
   }, []);
 
   const fetchDeposits = async () => {
@@ -112,6 +126,13 @@ export default function AdminDashboard() {
       setReferralBonus(points);
       alert(`추천인 보너스가 ${points} 포인트로 변경되었습니다.`);
     } catch (err: any) { alert(err.message); }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/deposits/stats`, { credentials: 'include' });
+      if (res.ok) setStats(await res.json());
+    } catch {}
   };
 
   const fetchUsers = async () => {
@@ -200,6 +221,7 @@ export default function AdminDashboard() {
       if (!response.ok) { const e = await response.json(); throw new Error(e.detail || '승인 실패'); }
       alert('승인 완료. 사용자에게 JOY 코인을 전송하세요!');
       fetchDeposits();
+      fetchStats();
     } catch (err: any) { alert(err.message); }
     finally { setProcessingId(null); }
   };
@@ -216,6 +238,7 @@ export default function AdminDashboard() {
       if (!response.ok) { const e = await response.json(); throw new Error(e.detail || '거절 실패'); }
       alert('입금 요청이 거절되었습니다.');
       fetchDeposits();
+      fetchStats();
     } catch (err: any) { alert(err.message); }
     finally { setProcessingId(null); }
   };
@@ -252,14 +275,15 @@ export default function AdminDashboard() {
     );
   };
 
-  // 검색 + 필터링
+  // 검색 + 필터링 (섹터 필터 포함)
   const filteredRequests = requests.filter(req => {
     const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
     const matchesSearch = !searchQuery ||
       req.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.id.toString().includes(searchQuery);
-    return matchesStatus && matchesSearch;
+    const matchesSector = sectorFilter === 'all' || req.user?.sector_id?.toString() === sectorFilter;
+    return matchesStatus && matchesSearch && matchesSector;
   });
 
   if (error) {
@@ -337,25 +361,53 @@ export default function AdminDashboard() {
             </div>
           ) : activeTab === 'deposits' ? (
             <>
-              {/* 통계 카드 */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
+              {/* 통계 카드 - 상단 요약 */}
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                <div className="p-4 rounded-2xl border border-white/5 bg-slate-900/40">
+                  <p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">총 유저</p>
+                  <p className="text-2xl font-black italic mt-1">{stats?.total_users ?? '-'}</p>
+                </div>
+                <div className="p-4 rounded-2xl border border-white/5 bg-slate-900/40">
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">총 입금건</p>
+                  <p className="text-2xl font-black italic mt-1">{stats?.total_deposits ?? '-'}</p>
+                </div>
+                <div className="p-4 rounded-2xl border border-yellow-500/10 bg-yellow-500/5">
                   <p className="text-yellow-500 text-[10px] font-black uppercase tracking-widest">대기중</p>
-                  <p className="text-3xl font-black italic mt-2">{requests.filter(r => r.status === 'pending').length}</p>
+                  <p className="text-2xl font-black italic mt-1 text-yellow-400">{stats?.pending_count ?? '-'}</p>
                 </div>
-                <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
+                <div className="p-4 rounded-2xl border border-green-500/10 bg-green-500/5">
                   <p className="text-green-500 text-[10px] font-black uppercase tracking-widest">승인완료</p>
-                  <p className="text-3xl font-black italic mt-2">{requests.filter(r => r.status === 'approved').length}</p>
+                  <p className="text-2xl font-black italic mt-1 text-green-400">{stats?.approved_count ?? '-'}</p>
                 </div>
-                <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
-                  <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">거절됨</p>
-                  <p className="text-3xl font-black italic mt-2">{requests.filter(r => r.status === 'rejected').length}</p>
+                <div className="p-4 rounded-2xl border border-white/5 bg-slate-900/40">
+                  <p className="text-cyan-400 text-[10px] font-black uppercase tracking-widest">총 USDT</p>
+                  <p className="text-2xl font-black italic mt-1 text-cyan-300">${stats?.total_approved_usdt?.toLocaleString() ?? '0'}</p>
+                </div>
+                <div className="p-4 rounded-2xl border border-white/5 bg-slate-900/40">
+                  <p className="text-purple-400 text-[10px] font-black uppercase tracking-widest">총 JOY</p>
+                  <p className="text-2xl font-black italic mt-1 text-purple-300">{stats?.total_approved_joy?.toLocaleString() ?? '0'}</p>
                 </div>
               </div>
 
-              {/* 검색 + 필터 */}
-              <div className="flex gap-3 items-center">
-                <div className="flex-1 relative">
+              {/* 섹터별 통계 */}
+              {stats?.sector_stats && stats.sector_stats.length > 0 && (
+                <div className="grid grid-cols-5 gap-3">
+                  {stats.sector_stats.map(ss => {
+                    const sector = sectors.find(s => s.id === ss.sector_id);
+                    return (
+                      <div key={ss.sector_id} className="p-4 rounded-2xl border border-blue-500/10 bg-blue-500/5">
+                        <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest">섹터 {sector?.name || ss.sector_id}</p>
+                        <p className="text-lg font-black italic mt-1">{ss.deposit_count}건</p>
+                        <p className="text-xs text-slate-400 mt-0.5">${ss.total_usdt.toLocaleString()}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 검색 + 필터 + 섹터 필터 */}
+              <div className="flex gap-3 items-center flex-wrap">
+                <div className="flex-1 min-w-[200px] relative">
                   <input
                     type="text"
                     placeholder="이메일, 유저명, ID로 검색..."
@@ -364,6 +416,16 @@ export default function AdminDashboard() {
                     className="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50"
                   />
                 </div>
+                <select
+                  value={sectorFilter}
+                  onChange={e => setSectorFilter(e.target.value)}
+                  className="bg-slate-900/60 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50"
+                >
+                  <option value="all">전체 섹터</option>
+                  {sectors.map(s => (
+                    <option key={s.id} value={s.id.toString()}>섹터 {s.name}</option>
+                  ))}
+                </select>
                 <div className="flex gap-1">
                   {['all', 'pending', 'approved', 'rejected'].map(s => (
                     <button
@@ -390,6 +452,7 @@ export default function AdminDashboard() {
                         <tr>
                           <th className="p-5">ID</th>
                           <th className="p-5">유저</th>
+                          <th className="p-5">섹터</th>
                           <th className="p-5">네트워크</th>
                           <th className="p-5 text-right">금액</th>
                           <th className="p-5 text-right">JOY 수량</th>
@@ -405,6 +468,15 @@ export default function AdminDashboard() {
                             <td className="p-5">
                               <div className="font-mono text-xs text-blue-300">{maskEmail(req.user.email)}</div>
                               <div className="text-[9px] text-slate-600 mt-1">{req.user.username}</div>
+                            </td>
+                            <td className="p-5">
+                              {req.user.sector_id ? (
+                                <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] text-blue-400 font-black">
+                                  {sectors.find(s => s.id === req.user.sector_id)?.name || req.user.sector_id}
+                                </span>
+                              ) : (
+                                <span className="text-slate-600 text-[10px]">-</span>
+                              )}
                             </td>
                             <td className="p-5">
                               <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] text-blue-400 font-black uppercase italic">{req.chain}</span>

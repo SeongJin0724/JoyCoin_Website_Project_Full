@@ -7,6 +7,8 @@ from typing import Optional, List
 
 from sqlalchemy.orm import joinedload
 
+from sqlalchemy import func as sqlfunc
+
 from app.core.db import get_db
 from app.core.auth import get_current_admin
 from app.models import DepositRequest, User
@@ -116,3 +118,45 @@ def reject_deposit(
     db.commit()
     db.refresh(dr)
     return dr
+
+
+# ---------- 통계 ----------
+@router.get("/stats")
+def get_deposit_stats(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    total_users = db.query(sqlfunc.count(User.id)).scalar()
+    total_deposits = db.query(sqlfunc.count(DepositRequest.id)).scalar()
+    total_approved_usdt = db.query(
+        sqlfunc.coalesce(sqlfunc.sum(DepositRequest.actual_amount), 0)
+    ).filter(DepositRequest.status == "approved").scalar()
+    total_approved_joy = db.query(
+        sqlfunc.coalesce(sqlfunc.sum(DepositRequest.joy_amount), 0)
+    ).filter(DepositRequest.status == "approved").scalar()
+    pending_count = db.query(sqlfunc.count(DepositRequest.id)).filter(DepositRequest.status == "pending").scalar()
+    approved_count = db.query(sqlfunc.count(DepositRequest.id)).filter(DepositRequest.status == "approved").scalar()
+    rejected_count = db.query(sqlfunc.count(DepositRequest.id)).filter(DepositRequest.status == "rejected").scalar()
+
+    # 섹터별 통계
+    sector_stats = db.query(
+        User.sector_id,
+        sqlfunc.count(DepositRequest.id).label("deposit_count"),
+        sqlfunc.coalesce(sqlfunc.sum(DepositRequest.actual_amount), 0).label("total_usdt"),
+    ).join(DepositRequest, DepositRequest.user_id == User.id).filter(
+        DepositRequest.status == "approved"
+    ).group_by(User.sector_id).all()
+
+    return {
+        "total_users": total_users,
+        "total_deposits": total_deposits,
+        "total_approved_usdt": float(total_approved_usdt),
+        "total_approved_joy": int(total_approved_joy),
+        "pending_count": pending_count,
+        "approved_count": approved_count,
+        "rejected_count": rejected_count,
+        "sector_stats": [
+            {"sector_id": s.sector_id, "deposit_count": s.deposit_count, "total_usdt": float(s.total_usdt)}
+            for s in sector_stats
+        ],
+    }
