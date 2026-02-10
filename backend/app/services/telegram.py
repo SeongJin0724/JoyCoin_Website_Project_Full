@@ -1,7 +1,13 @@
 # backend/app/services/telegram.py
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from app.core.config import settings
+
+KST = timezone(timedelta(hours=9))
+
+
+def now_kst() -> str:
+    return datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def send_telegram_notification(message: str) -> bool:
@@ -49,7 +55,7 @@ def notify_new_deposit_request(user_email: str, amount: float, joy_amount: int, 
 🌐 네트워크: {chain}
 🆔 요청 ID: #{deposit_id}
 
-⏰ 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+⏰ 시간: {now_kst()}
 """
     return send_telegram_notification(message)
 
@@ -89,7 +95,7 @@ def notify_deposit_detected(amount: float, sender: str, tx_hash: str, chain: str
 📤 보낸 주소: <code>{sender}</code>
 🔗 TX: <a href="{explorer_url}">{tx_hash[:16]}...</a>
 
-⏰ 감지 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+⏰ 감지 시간: {now_kst()}
 
 👉 관리자 대시보드에서 확인 후 승인해주세요.
 """

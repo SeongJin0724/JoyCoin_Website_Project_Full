@@ -3,13 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-// --- [Helper Functions] ---
-const maskEmail = (email: string) => {
-  const [name, domain] = email.split('@');
-  if (name.length <= 2) return `${name}***@${domain}`;
-  return `${name.substring(0, 2)}***@${domain}`;
-};
-
 // --- [Types] ---
 interface DepositRequest {
   id: number;
@@ -233,7 +226,7 @@ export default function AdminDashboard() {
   };
 
   const handleApprove = async (id: number, userEmail: string) => {
-    if (!confirm(`${maskEmail(userEmail)} 님의 입금 요청을 승인하시겠습니까?`)) return;
+    if (!confirm(`${userEmail} 님의 입금 요청을 승인하시겠습니까?`)) return;
     try {
       setProcessingId(id);
       const response = await fetch(`${API_BASE_URL}/admin/deposits/${id}/approve`, {
@@ -249,7 +242,7 @@ export default function AdminDashboard() {
   };
 
   const handleReject = async (id: number, userEmail: string) => {
-    const reason = prompt(`${maskEmail(userEmail)} 님의 입금 요청 거절 사유:`);
+    const reason = prompt(`${userEmail} 님의 입금 요청 거절 사유:`);
     if (!reason) return;
     try {
       setProcessingId(id);
@@ -488,7 +481,7 @@ export default function AdminDashboard() {
                           <tr key={req.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
                             <td className="p-5"><div className="font-mono text-xs text-slate-500">#{req.id}</div></td>
                             <td className="p-5">
-                              <div className="font-mono text-xs text-blue-300">{maskEmail(req.user.email)}</div>
+                              <div className="font-mono text-xs text-blue-300">{req.user.email}</div>
                               <div className="text-[9px] text-slate-600 mt-1">{req.user.username}</div>
                             </td>
                             <td className="p-5">
@@ -667,7 +660,7 @@ export default function AdminDashboard() {
                         .map((u) => (
                         <tr key={u.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
                           <td className="p-5 font-mono text-xs text-slate-500">#{u.id}</td>
-                          <td className="p-5 font-mono text-xs text-blue-300">{maskEmail(u.email)}</td>
+                          <td className="p-5 font-mono text-xs text-blue-300">{u.email}</td>
                           <td className="p-5 text-xs text-slate-300">{u.username}</td>
                           <td className="p-5 text-center">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
