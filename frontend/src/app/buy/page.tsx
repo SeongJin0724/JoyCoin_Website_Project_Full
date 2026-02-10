@@ -24,8 +24,15 @@ export default function BuyPage() {
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [depositInfo, setDepositInfo] = useState<{ id: number; address: string; amount: number; joyAmount: number } | null>(null);
+  const [depositInfo, setDepositInfo] = useState<{ id: number; address: string; amount: number; joyAmount: number; chain: string } | null>(null);
   const [joyPerUsdt, setJoyPerUsdt] = useState(5.0);
+  const [selectedChain, setSelectedChain] = useState('Polygon');
+
+  const chains = [
+    { id: 'Polygon', label: 'Polygon', color: 'purple' },
+    { id: 'Ethereum', label: 'Ethereum', color: 'blue' },
+    { id: 'TRON', label: 'TRON (TRC-20)', color: 'red' },
+  ];
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
@@ -86,7 +93,7 @@ export default function BuyPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          chain: 'Polygon',
+          chain: selectedChain,
           amount_usdt: totalUsdt
         }),
       });
@@ -97,7 +104,8 @@ export default function BuyPage() {
           id: result.id,
           address: result.assigned_address,
           amount: totalUsdt,
-          joyAmount: result.joy_amount || totalUsdt * joyPerUsdt
+          joyAmount: result.joy_amount || totalUsdt * joyPerUsdt,
+          chain: selectedChain
         });
         setMessage({
           type: 'success',
@@ -155,7 +163,7 @@ export default function BuyPage() {
             <div className="space-y-3">
               <div className="bg-slate-800 p-4 rounded-xl">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-slate-400">{locale === 'ko' ? 'USDT 입금 주소 (Polygon)' : 'USDT Address (Polygon)'}</span>
+                  <span className="text-xs text-slate-400">{locale === 'ko' ? `USDT 입금 주소 (${depositInfo.chain})` : `USDT Address (${depositInfo.chain})`}</span>
                   <button onClick={copyAddress} className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 bg-blue-500/10 rounded">
                     {locale === 'ko' ? '복사' : 'Copy'}
                   </button>
@@ -177,8 +185,9 @@ export default function BuyPage() {
               <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-xl text-xs text-yellow-400">
                 <p className="font-semibold mb-1">{locale === 'ko' ? '⚠️ 주의사항' : '⚠️ Important'}</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>{locale === 'ko' ? '반드시 Polygon 네트워크로 입금해주세요' : 'Send via Polygon network only'}</li>
+                  <li>{locale === 'ko' ? `반드시 ${depositInfo.chain} 네트워크로 입금해주세요` : `Send via ${depositInfo.chain} network only`}</li>
                   <li>{locale === 'ko' ? '정확한 금액을 입금해주세요' : 'Send the exact amount'}</li>
+                  <li>{locale === 'ko' ? '다른 네트워크로 전송 시 복구 불가' : 'Wrong network = unrecoverable'}</li>
                 </ul>
               </div>
 
@@ -249,7 +258,29 @@ export default function BuyPage() {
           </div>
 
           {/* 주문 요약 */}
-          <div className="lg:sticky lg:top-24 h-fit">
+          <div className="lg:sticky lg:top-24 h-fit space-y-4">
+            {/* 체인 선택 */}
+            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                {locale === 'ko' ? '네트워크 선택' : 'Select Network'}
+              </h2>
+              <div className="grid grid-cols-3 gap-2">
+                {chains.map(chain => (
+                  <button
+                    key={chain.id}
+                    onClick={() => setSelectedChain(chain.id)}
+                    className={`py-3 px-2 rounded-xl text-xs font-bold transition-all text-center ${
+                      selectedChain === chain.id
+                        ? 'bg-blue-600 text-white border border-blue-500'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-transparent'
+                    }`}
+                  >
+                    {chain.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
               <h2 className="text-lg font-bold text-white mb-6">{locale === 'ko' ? '주문 요약' : 'Order Summary'}</h2>
 

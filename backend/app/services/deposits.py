@@ -7,9 +7,22 @@ from app.core.config import settings
 from app.services.telegram import notify_new_deposit_request
 
 
+def _get_address_for_chain(chain: str) -> str:
+    """체인에 맞는 입금 주소 반환"""
+    if chain == "TRON":
+        addr = settings.USDT_ADMIN_ADDRESS_TRON
+        if not addr:
+            raise ValueError("USDT_ADMIN_ADDRESS_TRON is not configured")
+        return addr
+    else:  # Polygon, Ethereum (EVM 공용)
+        addr = settings.USDT_ADMIN_ADDRESS
+        if not addr:
+            raise ValueError("USDT_ADMIN_ADDRESS is not configured")
+        return addr
+
+
 def create_deposit_request(db: Session, user: User, data):
-    if not settings.USDT_ADMIN_ADDRESS:
-        raise ValueError("USDT_ADMIN_ADDRESS is not configured")
+    assigned_address = _get_address_for_chain(data.chain)
 
     # USDT 금액
     amt = Decimal(str(data.amount_usdt))
@@ -24,7 +37,7 @@ def create_deposit_request(db: Session, user: User, data):
         chain=data.chain,
         expected_amount=float(amt),
         joy_amount=joy_amount,
-        assigned_address=settings.USDT_ADMIN_ADDRESS,
+        assigned_address=assigned_address,
         sender_name=user.username,
         status="pending",
     )

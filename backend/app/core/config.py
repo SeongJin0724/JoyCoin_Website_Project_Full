@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MIN: int = 20
     CORS_ORIGINS: str = "http://localhost:3000"
 
-    # ✅ 누락된 환경변수들 정의
-    USDT_ADMIN_ADDRESS: str | None = None
+    # 체인별 USDT 입금 주소
+    USDT_ADMIN_ADDRESS: str | None = None          # Polygon/Ethereum (EVM 공용)
+    USDT_ADMIN_ADDRESS_TRON: str | None = None      # TRON (TRC-20)
 
     # 이미 쓰고 있는 슈퍼관리자
     SUPER_ADMIN_EMAIL: str | None = None
@@ -23,8 +24,9 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str | None = None
     TELEGRAM_CHAT_ID: str | None = None
 
-    # Polygonscan API 설정
-    POLYGONSCAN_API_KEY: str | None = None
+    # 블록체인 API 키
+    POLYGONSCAN_API_KEY: str | None = None         # Etherscan V2 (Polygon + Ethereum)
+    TRONGRID_API_KEY: str | None = None            # TronGrid (TRON)
     WALLET_POLL_INTERVAL_SECONDS: int = 60
 
 

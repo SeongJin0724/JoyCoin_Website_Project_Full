@@ -71,14 +71,20 @@ def notify_deposit_approved(user_email: str, amount: float, joy_amount: int, dep
     return send_telegram_notification(message)
 
 
-def notify_deposit_detected(amount: float, sender: str, tx_hash: str):
+def notify_deposit_detected(amount: float, sender: str, tx_hash: str, chain: str = "Polygon"):
     """
     블록체인에서 USDT 입금이 감지되었을 때 알림
     """
-    explorer_url = f"https://polygonscan.com/tx/{tx_hash}"
+    explorer_urls = {
+        "Polygon": f"https://polygonscan.com/tx/{tx_hash}",
+        "Ethereum": f"https://etherscan.io/tx/{tx_hash}",
+        "TRON": f"https://tronscan.org/#/transaction/{tx_hash}",
+    }
+    explorer_url = explorer_urls.get(chain, f"https://polygonscan.com/tx/{tx_hash}")
     message = f"""
 💰 <b>USDT 입금 감지!</b>
 
+🌐 체인: {chain}
 📥 금액: {amount} USDT
 📤 보낸 주소: <code>{sender}</code>
 🔗 TX: <a href="{explorer_url}">{tx_hash[:16]}...</a>

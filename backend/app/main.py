@@ -96,15 +96,22 @@ def on_startup():
     logger.info("Generating recovery codes for existing users...")
     generate_recovery_codes()
 
-    # 지갑 모니터링 백그라운드 스레드 시작
-    if settings.USDT_ADMIN_ADDRESS and settings.POLYGONSCAN_API_KEY:
+    # 지갑 모니터링 백그라운드 스레드 시작 (Polygon/Ethereum/TRON)
+    has_evm = settings.USDT_ADMIN_ADDRESS and settings.POLYGONSCAN_API_KEY
+    has_tron = settings.USDT_ADMIN_ADDRESS_TRON
+    if has_evm or has_tron:
         import threading
         from app.services.wallet_monitor import wallet_monitor_loop
+        chains = []
+        if has_evm:
+            chains.extend(["Polygon", "Ethereum"])
+        if has_tron:
+            chains.append("TRON")
         monitor_thread = threading.Thread(target=wallet_monitor_loop, daemon=True)
         monitor_thread.start()
-        logger.info("Wallet monitor thread started.")
+        logger.info(f"Wallet monitor started for: {', '.join(chains)}")
     else:
-        logger.warning("Wallet monitor NOT started - missing USDT_ADMIN_ADDRESS or POLYGONSCAN_API_KEY")
+        logger.warning("Wallet monitor NOT started - no chain addresses configured")
 
     logger.info("Application startup complete.")
 
