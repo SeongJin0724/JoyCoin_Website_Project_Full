@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/LanguageContext";
 import { AuthProvider } from "@/lib/AuthContext";
+import { ToastProvider } from "@/components/Toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -19,17 +20,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col relative overflow-x-hidden">
         <LanguageProvider>
           <AuthProvider>
-            <div className="liquid-bg">
-              <div className="liquid-drop"></div>
-            </div>
+            <ToastProvider>
+              <div className="liquid-bg">
+                <div className="liquid-drop"></div>
+              </div>
 
-            <Header />
+              <Header />
 
-            <main className="flex-1 flex flex-col relative z-10 pt-20">
-              {children}
-            </main>
+              <main className="flex-1 flex flex-col relative z-10 pt-20">
+                {children}
+              </main>
 
-            <Footer />
+              <Footer />
+            </ToastProvider>
           </AuthProvider>
         </LanguageProvider>
       </body>

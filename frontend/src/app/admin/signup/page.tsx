@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/Toast';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { toast } = useToast();
 
   // 1. 입력 데이터를 담을 바구니(상태) 만들기
   const [email, setEmail] = useState(''); // 화면에는 Email로 표시하지만 서버에는 username으로 보냅니다.
@@ -56,14 +58,14 @@ export default function SignupPage() {
       });
 
       if (response.ok) {
-        alert("회원가입이 완료되었습니다! 로그인을 진행해주세요.");
-        router.push('/auth/login'); // 가입 성공 시 로그인 페이지로 이동
+        toast("회원가입이 완료되었습니다! 로그인을 진행해주세요.", "success");
+        router.push('/auth/login');
       } else {
         const errorData = await response.json();
-        alert(`가입 실패: ${JSON.stringify(errorData.detail)}`);
+        toast(`가입 실패: ${typeof errorData.detail === 'object' ? JSON.stringify(errorData.detail) : errorData.detail}`, "error");
       }
     } catch (error) {
-      alert("서버 연결에 실패했습니다. 백엔드 서버가 켜져 있는지 확인하세요.");
+      toast("서버 연결에 실패했습니다. 백엔드 서버가 켜져 있는지 확인하세요.", "error");
     } finally {
       setIsLoading(false);
     }

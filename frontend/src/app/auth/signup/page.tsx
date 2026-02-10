@@ -4,10 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useToast } from '@/components/Toast';
 
 export default function SignupPage() {
   const router = useRouter();
   const { t, locale } = useLanguage();
+  const { showModal } = useToast();
   const [sectors, setSectors] = useState<{id: number; name: string}[]>([]);
   const [formData, setFormData] = useState({
     email: '',
@@ -107,13 +109,18 @@ export default function SignupPage() {
 
       if (response.ok) {
         const result = await response.json();
-        // 회원가입 성공 시 복구 코드 알림
-        alert(
-          locale === 'ko'
-            ? `회원가입 완료!\n\n중요: 계정 복구 코드가 발급되었습니다.\n마이페이지에서 복구 코드를 확인하고 안전한 곳에 보관하세요.\n이 코드로 아이디/비밀번호를 찾을 수 있습니다.`
-            : `Registration complete!\n\nImportant: A recovery code has been issued.\nPlease check your recovery code in My Page and keep it safe.\nYou can use this code to recover your account.`
-        );
-        router.push('/auth/login?registered=1');
+        showModal({
+          type: 'success',
+          title: locale === 'ko' ? '회원가입 완료!' : 'Registration Complete!',
+          message: locale === 'ko'
+            ? '계정 복구 코드가 발급되었습니다.\n마이페이지에서 복구 코드를 확인하고 안전한 곳에 보관하세요.'
+            : 'A recovery code has been issued.\nPlease check your recovery code in My Page and keep it safe.',
+          sub: locale === 'ko'
+            ? '이 코드로 아이디/비밀번호를 찾을 수 있습니다.\n절대 타인에게 공유하지 마세요!'
+            : 'You can use this code to recover your account.\nNever share it with anyone!',
+          buttonText: locale === 'ko' ? '로그인하러 가기' : 'Go to Login',
+          onClose: () => router.push('/auth/login?registered=1'),
+        });
       } else {
         const data = await response.json();
         setError(data.detail || (locale === 'ko' ? "가입에 실패했습니다." : "Registration failed."));

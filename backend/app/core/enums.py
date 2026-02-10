@@ -18,7 +18,6 @@ class DepositStatus(str, Enum):
 
 class BlockchainNetwork(str, Enum):
     """지원하는 블록체인 네트워크"""
-    TRC20 = "TRC20"
-    ERC20 = "ERC20"
-    BSC = "BSC"
     POLYGON = "Polygon"
+    ETHEREUM = "Ethereum"
+    TRON = "TRON"

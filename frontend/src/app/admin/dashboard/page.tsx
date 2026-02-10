@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/Toast';
 
 // --- [Types] ---
 interface DepositRequest {
@@ -46,6 +47,7 @@ interface UserItem {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { toast } = useToast();
 
   const [requests, setRequests] = useState<DepositRequest[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -123,13 +125,13 @@ export default function AdminDashboard() {
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
       setReferralBonus(points);
-      alert(`추천인 보너스가 ${points}%로 변경되었습니다.`);
-    } catch (err: any) { alert(err.message); }
+      toast(`추천인 보너스가 ${points}%로 변경되었습니다.`, "success");
+    } catch (err: any) { toast(err.message, "error"); }
   };
 
   const handleExchangeRateChange = async () => {
     const val = parseFloat(joyPerUsdtInput);
-    if (isNaN(val) || val <= 0) { alert('올바른 값을 입력하세요'); return; }
+    if (isNaN(val) || val <= 0) { toast('올바른 값을 입력하세요', 'warning'); return; }
     try {
       const res = await fetch(`${API_BASE_URL}/admin/settings/exchange-rate`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
@@ -139,8 +141,8 @@ export default function AdminDashboard() {
       const data = await res.json();
       setJoyPerUsdt(data.joy_per_usdt);
       setJoyPerUsdtInput(String(data.joy_per_usdt));
-      alert(`JOY 시세가 변경되었습니다.\n1 USDT = ${data.joy_per_usdt} JOY\n1 JOY = ${data.joy_to_krw} KRW`);
-    } catch (err: any) { alert(err.message); }
+      toast(`JOY 시세 변경: 1 USDT = ${data.joy_per_usdt} JOY / 1 JOY = ${data.joy_to_krw} KRW`, "success");
+    } catch (err: any) { toast(err.message, "error"); }
   };
 
   const fetchStats = async () => {
@@ -169,7 +171,7 @@ export default function AdminDashboard() {
       const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/${action}`, { method: 'POST', credentials: 'include' });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
       fetchUsers();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast(err.message, "error"); }
     finally { setUserProcessingId(null); }
   };
 
@@ -182,7 +184,7 @@ export default function AdminDashboard() {
       const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/${action}`, { method: 'POST', credentials: 'include' });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
       fetchUsers();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast(err.message, "error"); }
     finally { setUserProcessingId(null); }
   };
 
@@ -212,7 +214,7 @@ export default function AdminDashboard() {
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
       setShowProductForm(false);
       fetchProducts();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast(err.message, "error"); }
   };
 
   const handleProductToggle = async (id: number, isActive: boolean) => {
@@ -222,7 +224,7 @@ export default function AdminDashboard() {
       const res = await fetch(url, { method, credentials: 'include' });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail); }
       fetchProducts();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast(err.message, "error"); }
   };
 
   const handleApprove = async (id: number, userEmail: string) => {
@@ -234,10 +236,10 @@ export default function AdminDashboard() {
         body: JSON.stringify({ admin_notes: '승인 완료' })
       });
       if (!response.ok) { const e = await response.json(); throw new Error(e.detail || '승인 실패'); }
-      alert('승인 완료. 사용자에게 JOY 코인을 전송하세요!');
+      toast('승인 완료. 사용자에게 JOY 코인을 전송하세요!', 'success');
       fetchDeposits();
       fetchStats();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast(err.message, "error"); }
     finally { setProcessingId(null); }
   };
 
@@ -251,10 +253,10 @@ export default function AdminDashboard() {
         body: JSON.stringify({ admin_notes: reason })
       });
       if (!response.ok) { const e = await response.json(); throw new Error(e.detail || '거절 실패'); }
-      alert('입금 요청이 거절되었습니다.');
+      toast('입금 요청이 거절되었습니다.', 'info');
       fetchDeposits();
       fetchStats();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast(err.message, "error"); }
     finally { setProcessingId(null); }
   };
 
@@ -266,7 +268,7 @@ export default function AdminDashboard() {
       });
       if (!response.ok) throw new Error('Fee 변경 실패');
       fetchSectors();
-    } catch (err: any) { alert(err.message); }
+    } catch (err: any) { toast(err.message, "error"); }
   };
 
   const handleLogout = async () => {

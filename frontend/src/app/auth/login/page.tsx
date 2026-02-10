@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useToast } from '@/components/Toast';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { t, locale } = useLanguage();
+  const { toast } = useToast();
 
   useEffect(() => { if (params.get("registered") === "1") setMsg(true); }, [params]);
 
@@ -30,8 +32,8 @@ function LoginForm() {
       const data = await response.json();
       if (response.ok) {
         window.location.href = '/mypage';
-      } else { alert(data.detail || t("loginFailed")); }
-    } catch (err) { alert("Server connection failed"); }
+      } else { toast(data.detail || t("loginFailed"), "error"); }
+    } catch (err) { toast(locale === 'ko' ? "서버 연결 실패" : "Server connection failed", "error"); }
     finally { setIsLoading(false); }
   };
 

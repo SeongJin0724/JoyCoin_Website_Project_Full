@@ -2,12 +2,14 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/Toast';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { toast } = useToast();
 
   // 로그인 처리 함수
   const handleLogin = async (e: React.FormEvent) => {
@@ -31,10 +33,10 @@ export default function AdminLoginPage() {
         const errorDetail = typeof data.detail === 'object'
           ? JSON.stringify(data.detail)
           : data.detail;
-        alert(`로그인 실패: ${errorDetail}`);
+        toast(`로그인 실패: ${errorDetail}`, "error");
       }
     } catch (error) {
-      alert("서버 연결 실패");
+      toast("서버 연결 실패", "error");
     } finally {
       setIsLoading(false);
     }

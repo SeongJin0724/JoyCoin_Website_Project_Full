@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useAuth } from '@/lib/AuthContext';
+import { useToast } from '@/components/Toast';
 
 // 패키지 다국어 매핑 (joy_amount 기준)
 const packageNamesByJoy: Record<number, { ko: string; en: string }> = {
@@ -18,6 +19,7 @@ export default function BuyPage() {
   const router = useRouter();
   const { t, locale } = useLanguage();
   const { isLoggedIn, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   const [products, setProducts] = useState<any[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -81,7 +83,8 @@ export default function BuyPage() {
 
   const handleDepositRequest = async () => {
     if (totalUsdt <= 0) {
-      return alert(locale === 'ko' ? "구매하실 패키지를 먼저 선택해주세요!" : "Please select a package first!");
+      toast(locale === 'ko' ? "구매하실 패키지를 먼저 선택해주세요!" : "Please select a package first!", "warning");
+      return;
     }
 
     setRequesting(true);
@@ -136,7 +139,7 @@ export default function BuyPage() {
   const copyAddress = () => {
     if (depositInfo?.address) {
       navigator.clipboard.writeText(depositInfo.address);
-      alert(locale === 'ko' ? '복사되었습니다!' : 'Copied!');
+      toast(locale === 'ko' ? '복사되었습니다!' : 'Copied!', 'success');
     }
   };
 

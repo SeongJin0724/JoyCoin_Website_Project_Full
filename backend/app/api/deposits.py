@@ -17,7 +17,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/request", response_model=DepositRequestOut)
-@limiter.limit("3/minute")  # 1분에 3번까지만 입금 요청 가능
+@limiter.limit("10/minute")  # 1분에 10번까지 입금 요청 가능
 def request_deposit(
     request: Request,
     data: DepositRequestIn,

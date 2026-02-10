@@ -4,11 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useAuth } from '@/lib/AuthContext';
+import { useToast } from '@/components/Toast';
 
 export default function MyPage() {
   const router = useRouter();
   const { t, locale } = useLanguage();
   const { user, isLoggedIn, isLoading: authLoading, logout } = useAuth();
+  const { toast } = useToast();
 
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -274,7 +276,7 @@ export default function MyPage() {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(user.referral_code || '');
-                      alert(locale === 'ko' ? '복사되었습니다!' : 'Copied!');
+                      toast(locale === 'ko' ? '복사되었습니다!' : 'Copied!', 'success');
                     }}
                     className="text-[10px] font-bold text-blue-400 hover:text-blue-300 px-3 py-1 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-all"
                   >
@@ -294,7 +296,7 @@ export default function MyPage() {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(user.recovery_code || '');
-                      alert(locale === 'ko' ? '복사되었습니다! 안전한 곳에 보관하세요.' : 'Copied! Keep it safe.');
+                      toast(locale === 'ko' ? '복사되었습니다! 안전한 곳에 보관하세요.' : 'Copied! Keep it safe.', 'success');
                     }}
                     className="text-[10px] font-bold text-yellow-400 hover:text-yellow-300 px-3 py-1 bg-yellow-500/10 rounded-lg hover:bg-yellow-500/20 transition-all"
                   >
