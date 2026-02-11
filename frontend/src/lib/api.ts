@@ -1,5 +1,5 @@
 // frontend/src/lib/api.ts
-const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+import { getApiBaseUrl } from "./apiBase";
 
 // fetch wrapper
 type ApiOptions = { method?: string; headers?: Record<string, string>; body?: any };
@@ -14,7 +14,7 @@ async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
       ? JSON.stringify(options.body)
       : options.body;
 
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
     method: options.method ?? "GET",
     headers,
     body,

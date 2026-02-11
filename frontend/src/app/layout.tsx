@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/AuthContext";
 import { ToastProvider } from "@/components/Toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import EntryGate from "@/components/EntryGate";
 
 export const metadata: Metadata = {
   title: "JOYCOIN",
@@ -21,17 +22,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LanguageProvider>
           <AuthProvider>
             <ToastProvider>
-              <div className="liquid-bg">
-                <div className="liquid-drop"></div>
-              </div>
+              <EntryGate>
+                <div className="liquid-bg">
+                  <div className="liquid-drop"></div>
+                </div>
 
-              <Header />
+                <Header />
 
-              <main className="flex-1 flex flex-col relative z-10 pt-20">
-                {children}
-              </main>
+                <main className="flex-1 flex flex-col relative z-10 pt-20">
+                  {children}
+                </main>
 
-              <Footer />
+                <Footer />
+              </EntryGate>
             </ToastProvider>
           </AuthProvider>
         </LanguageProvider>

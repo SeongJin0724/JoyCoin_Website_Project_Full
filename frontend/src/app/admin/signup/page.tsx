@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function SignupPage() {
   useEffect(() => {
     const fetchCenters = async () => {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+        const API_BASE_URL = getApiBaseUrl();
         const response = await fetch(`${API_BASE_URL}/centers`);
         if (response.ok) {
           const data = await response.json();
@@ -50,7 +51,7 @@ export default function SignupPage() {
         referral_code: referrer || null
       };
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

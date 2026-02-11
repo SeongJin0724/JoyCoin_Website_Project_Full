@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useToast } from '@/components/Toast';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -25,8 +26,13 @@ export default function SignupPage() {
   const [nicknameChecked, setNicknameChecked] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [nicknameError, setNicknameError] = useState("");
+  const [legalChecks, setLegalChecks] = useState({
+    terms: false,
+    risk: false,
+    privacy: false,
+  });
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  const API_BASE_URL = getApiBaseUrl();
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/sectors`)
@@ -132,15 +138,17 @@ export default function SignupPage() {
     }
   };
 
+  const allLegalChecked = legalChecks.terms && legalChecks.risk && legalChecks.privacy;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 py-24 text-white font-sans">
-      <div className="glass p-10 rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl">
-        <h1 className="text-3xl font-black italic text-center mb-8 text-blue-500 uppercase">{t("signup")}</h1>
+    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-4 sm:p-6 py-12 sm:py-24 text-white font-sans">
+      <div className="glass p-5 sm:p-10 rounded-2xl sm:rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl">
+        <h1 className="text-2xl sm:text-3xl font-black italic text-center mb-5 sm:mb-8 text-blue-500 uppercase">{t("signup")}</h1>
 
         {/* 복구 코드 안내 */}
-        <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-          <p className="text-xs text-yellow-400 font-semibold flex items-center gap-2">
-            <span className="text-lg">🔑</span>
+        <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+          <p className="text-[11px] sm:text-xs text-yellow-400 font-semibold flex items-center gap-2">
+            <span className="text-base sm:text-lg">🔑</span>
             {locale === 'ko'
               ? "회원가입 시 고유 복구 코드가 발급됩니다. 이 코드로 아이디/비밀번호를 찾을 수 있으니 꼭 보관하세요!"
               : "A unique recovery code will be issued upon signup. Keep it safe to recover your account!"}
@@ -152,7 +160,7 @@ export default function SignupPage() {
           <div>
             <div className="flex gap-2">
               <input type="text" placeholder={t("username")} required
-                className="flex-1 bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+                className="flex-1 bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base"
                 value={formData.nickname}
                 onChange={e => { setFormData({...formData, nickname: e.target.value}); setNicknameChecked(false); }} />
               <button type="button" onClick={checkNickname}
@@ -168,7 +176,7 @@ export default function SignupPage() {
           <div>
             <div className="flex gap-2">
               <input type="email" placeholder={t("email")} required
-                className="flex-1 bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+                className="flex-1 bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base"
                 value={formData.email}
                 onChange={e => { setFormData({...formData, email: e.target.value}); setEmailChecked(false); }} />
               <button type="button" onClick={checkEmail}
@@ -181,16 +189,16 @@ export default function SignupPage() {
           </div>
 
           <input type="password" placeholder={locale === 'ko' ? "비밀번호 (6자 이상)" : "Password (6+ chars)"} required
-            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+            className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base"
             value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
 
           <input type="password" placeholder={t("confirmPassword")} required
-            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+            className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base"
             value={formData.confirm} onChange={e => setFormData({...formData, confirm: e.target.value})} />
 
           <select
             required
-            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500 text-white"
+            className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-white text-sm sm:text-base"
             value={formData.sector_id}
             onChange={e => setFormData({...formData, sector_id: e.target.value})}
           >
@@ -203,13 +211,55 @@ export default function SignupPage() {
           </select>
 
           <input type="text" placeholder={`${t("referralCode")} (${t("optional")})`}
-            className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500"
+            className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base"
             value={formData.ref} onChange={e => setFormData({...formData, ref: e.target.value})} />
+
+          {/* Legal agreements */}
+          <div className="p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl">
+            <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={legalChecks.terms}
+                onChange={(e) => setLegalChecks((prev) => ({ ...prev, terms: e.target.checked }))}
+                className="mt-0.5 accent-cyan-400"
+              />
+              <span>{locale === 'ko' ? 'Terms of Use에 동의합니다.' : 'I agree to the Terms of Use.'}</span>
+            </label>
+            <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer mt-2">
+              <input
+                type="checkbox"
+                checked={legalChecks.risk}
+                onChange={(e) => setLegalChecks((prev) => ({ ...prev, risk: e.target.checked }))}
+                className="mt-0.5 accent-cyan-400"
+              />
+              <span>{locale === 'ko' ? 'Risk Disclosure에 동의합니다.' : 'I agree to the Risk Disclosure.'}</span>
+            </label>
+            <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer mt-2">
+              <input
+                type="checkbox"
+                checked={legalChecks.privacy}
+                onChange={(e) => setLegalChecks((prev) => ({ ...prev, privacy: e.target.checked }))}
+                className="mt-0.5 accent-cyan-400"
+              />
+              <span>{locale === 'ko' ? 'Privacy Policy에 동의합니다.' : 'I agree to the Privacy Policy.'}</span>
+            </label>
+            <div className="flex gap-2 mt-2 ml-5 text-[10px]">
+              <a href="/legal/terms" target="_blank" className="text-cyan-400 hover:text-cyan-300">Terms</a>
+              <span className="text-slate-600">|</span>
+              <a href="/legal/risk" target="_blank" className="text-cyan-400 hover:text-cyan-300">Risk</a>
+              <span className="text-slate-600">|</span>
+              <a href="/legal/privacy" target="_blank" className="text-cyan-400 hover:text-cyan-300">Privacy</a>
+            </div>
+          </div>
 
           {error && <p className="text-red-400 text-xs text-center font-bold animate-pulse">{error}</p>}
 
-          <button type="submit" disabled={loading}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black transition-all active:scale-95">
+          <button type="submit" disabled={loading || !allLegalChecked}
+            className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all active:scale-95 ${
+              allLegalChecked
+                ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+            }`}>
             {loading ? t("loading") : t("signup").toUpperCase()}
           </button>
         </form>

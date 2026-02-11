@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 // --- [Types] ---
 interface DepositRequest {
@@ -70,7 +71,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [sectorFilter, setSectorFilter] = useState<string>('all');
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  const API_BASE_URL = getApiBaseUrl();
 
   useEffect(() => {
     fetchDeposits();
@@ -266,7 +267,7 @@ export default function AdminDashboard() {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ fee_percent: fee })
       });
-      if (!response.ok) throw new Error('Fee 변경 실패');
+      if (!response.ok) throw new Error('기여분 변경 실패');
       fetchSectors();
     } catch (err: any) { toast(err.message, "error"); }
   };
@@ -363,7 +364,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('sectors')}
             className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'sectors' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
           >
-            섹터 Fee 설정
+            섹터 기여분 설정
           </button>
         </div>
       </div>
@@ -713,7 +714,7 @@ export default function AdminDashboard() {
               <p className="text-slate-600 text-[10px] text-right">총 {users.filter(u => !userSearch || u.email.toLowerCase().includes(userSearch.toLowerCase()) || u.username.toLowerCase().includes(userSearch.toLowerCase())).length}건</p>
             </>
           ) : (
-            /* 섹터 Fee 설정 탭 */
+            /* 섹터 기여분 설정 탭 */
             <div className="space-y-8">
               {/* JOY 시세 설정 */}
               <div className="space-y-4">
@@ -769,7 +770,7 @@ export default function AdminDashboard() {
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <h3 className="text-lg font-black text-white">추천 보너스 퍼센트</h3>
-                      <p className="text-xs text-slate-500 mt-1">추천인이 JOY 구매 시 결제 USDT의 N% 포인트 적립</p>
+                      <p className="text-xs text-slate-500 mt-1">추천인이 JOY 참여 시 결제 USDT의 N% 포인트 적립</p>
                     </div>
                     <span className="text-3xl font-black italic text-green-400">{referralBonus}%</span>
                   </div>
@@ -790,9 +791,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* 섹터별 Fee */}
+              {/* 섹터별 기여분 */}
               <div className="space-y-4">
-                <h2 className="text-slate-400 text-xs font-black uppercase tracking-[0.3em] italic">섹터별 Fee 설정</h2>
+                <h2 className="text-slate-400 text-xs font-black uppercase tracking-[0.3em] italic">섹터별 기여분 설정</h2>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {sectors.map(sector => (
                     <div key={sector.id} className="p-6 rounded-2xl border border-white/5 bg-slate-900/40 space-y-4">
@@ -820,6 +821,13 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Legal Disclaimer */}
+        <div className="mt-6 p-3 border-t border-slate-800">
+          <p className="text-[10px] text-slate-600 text-center italic">
+            Allocation approval is an operational verification process and does not constitute issuance, sale, or investment facilitation.
+          </p>
         </div>
       </div>
     </div>

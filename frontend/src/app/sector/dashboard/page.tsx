@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 const maskEmail = (email: string) => {
   const [name, domain] = email.split('@');
@@ -39,7 +40,7 @@ export default function SectorDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  const API_BASE_URL = getApiBaseUrl();
 
   useEffect(() => {
     fetchDashboard();
@@ -126,7 +127,7 @@ export default function SectorDashboard() {
           {/* 통계 카드 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Fee Rate</p>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Contribution Rate</p>
               <p className="text-3xl font-black italic text-blue-400 mt-2">{data?.sector.fee_percent}%</p>
             </div>
             <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
@@ -134,7 +135,7 @@ export default function SectorDashboard() {
               <p className="text-3xl font-black italic text-green-400 mt-2">{data?.stats.total_approved_deposits?.toLocaleString()} <span className="text-xs">USDT</span></p>
             </div>
             <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Fee 수익</p>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">기여분 정산</p>
               <p className="text-3xl font-black italic text-yellow-400 mt-2">{data?.stats.fee_amount?.toLocaleString()} <span className="text-xs">USDT</span></p>
             </div>
             <div className="p-6 rounded-2xl border border-white/5 bg-slate-900/40">

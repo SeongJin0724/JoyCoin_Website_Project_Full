@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 export default function SectorLogin() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function SectorLogin() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  const API_BASE_URL = getApiBaseUrl();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

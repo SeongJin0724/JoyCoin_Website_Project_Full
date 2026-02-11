@@ -3,40 +3,48 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.schemas.auth import SignupIn, LoginIn, Tokens
-from app.models import User, Center, Referral, Sector
+from app.models import User, Center, Referral, Sector, LegalConsent
 from app.core.config import settings
-from jose import jwt, JWTError # 토큰 해독을 위해 필요
+from jose import jwt, JWTError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# [추가] 쿠키에서 유저를 찾아내는 함수 (Dependency)
+
+def _client_ip(request: Request) -> str | None:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return None
+
 async def get_current_user(request: Request, db: Session = Depends(get_db)):
-    # 프론트에서 보낸 'accessToken' 쿠키를 가져옵니다.
     token = request.cookies.get("accessToken")
     if not token:
         raise HTTPException(status_code=401, detail="인증 쿠키가 없습니다.")
-    
+
     try:
-        # 토큰 해독
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
         user_id: str = payload.get("sub")
         if user_id is None:
-            raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+            raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다")
     except JWTError:
-        raise HTTPException(status_code=401, detail="인증 세션이 만료되었습니다.")
-    
+        raise HTTPException(status_code=401, detail="인증 세션이 만료되었습니다")
+
     user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
         raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
     return user
 
 # ---------------------------------------------------------
-# 1. 회원가입 (기존 유지)
+# 1. 회원가입
 # ---------------------------------------------------------
 @router.post("/signup")
-def signup(data: SignupIn, db: Session = Depends(get_db)):
+def signup(data: SignupIn, request: Request, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다")
+    if not (data.terms_accepted and data.risk_accepted and data.privacy_accepted):
+        raise HTTPException(status_code=400, detail="Required legal agreements were not accepted.")
 
     referrer = None
     if data.referral_code:
@@ -70,22 +78,33 @@ def signup(data: SignupIn, db: Session = Depends(get_db)):
     db.flush()
 
     if referrer:
-        # 추천 기록 생성
         referral = Referral(
             referrer_id=referrer.id,
             referred_id=user.id,
-            reward_points=0  # 가입 시 즉시 지급 없음 (구매 시 10% 적립)
+            reward_points=0
         )
         db.add(referral)
-
-        # 추천인의 남은 보상 횟수 +1 (구매 시 1회 사용됨)
         referrer.referral_reward_remaining = int(referrer.referral_reward_remaining or 0) + 1
+
+    consent = LegalConsent(
+        user_id=user.id,
+        event_type="signup",
+        legal_version=data.legal_version,
+        locale=data.locale,
+        page_path="/auth/signup",
+        terms_accepted=data.terms_accepted,
+        risk_accepted=data.risk_accepted,
+        privacy_accepted=data.privacy_accepted,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.add(consent)
 
     db.commit()
     return {"message": "회원가입 성공", "user_id": user.id, "referral_code": user.referral_code}
 
 # ---------------------------------------------------------
-# 2. 로그인 (기존 유지 + 쿠키 설정)
+# 2. 로그인
 # ---------------------------------------------------------
 @router.post("/login", response_model=Tokens)
 def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
@@ -106,7 +125,7 @@ def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
         key="accessToken",
         value=access,
         httponly=True,
-        secure=False, # 로컬 테스트 환경이므로 False로 고정 (중요!)
+        secure=False,
         samesite="lax",
         max_age=settings.JWT_EXPIRE_MIN * 60,
         path="/"
@@ -115,14 +134,10 @@ def login(data: LoginIn, response: Response, db: Session = Depends(get_db)):
     return Tokens(access=access)
 
 # ---------------------------------------------------------
-# 3. [신규 추가] 내 정보 조회 (/auth/me)
+# 3. 내 정보 조회 (/auth/me)
 # ---------------------------------------------------------
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):
-    """
-    현재 로그인된 유저의 정보를 반환합니다.
-    마이페이지에서 센터 정보, 추천코드 등 필요한 데이터를 포함합니다.
-    """
     center_data = None
     if current_user.center:
         center_data = {
@@ -169,15 +184,12 @@ async def change_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 현재 비밀번호 확인
     if not verify_password(data.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다.")
 
-    # 새 비밀번호가 현재 비밀번호와 같은지 확인
     if data.current_password == data.new_password:
-        raise HTTPException(status_code=400, detail="새 비밀번호는 현재 비밀번호와 달라야 합니다.")
+        raise HTTPException(status_code=400, detail="새 비밀번호는 현재 비밀번호와 달라야 합니다")
 
-    # 비밀번호 변경
     current_user.password_hash = hash_password(data.new_password)
     db.commit()
 
@@ -185,18 +197,16 @@ async def change_password(
 
 
 # ---------------------------------------------------------
-# 6. 이메일/닉네임 중복 확인
+# 6. 이메일/유저네임 중복 확인
 # ---------------------------------------------------------
 @router.get("/check-email")
 def check_email(email: str, db: Session = Depends(get_db)):
-    """이메일 중복 확인"""
     exists = db.query(User).filter(User.email == email).first() is not None
     return {"exists": exists}
 
 
 @router.get("/check-username")
 def check_username(username: str, db: Session = Depends(get_db)):
-    """닉네임 중복 확인"""
     exists = db.query(User).filter(User.username == username).first() is not None
     return {"exists": exists}
 
@@ -210,12 +220,10 @@ class FindEmailIn(BaseModel):
 
 @router.post("/find-email")
 def find_email(data: FindEmailIn, db: Session = Depends(get_db)):
-    """복구 코드로 이메일 찾기"""
     user = db.query(User).filter(User.recovery_code == data.recovery_code).first()
     if not user:
         raise HTTPException(status_code=404, detail="해당 복구 코드를 가진 계정이 없습니다.")
 
-    # 이메일 일부 마스킹
     email = user.email
     at_idx = email.index("@")
     masked_email = email[:2] + "*" * (at_idx - 2) + email[at_idx:]
@@ -233,7 +241,6 @@ class ResetPasswordIn(BaseModel):
 
 @router.post("/reset-password")
 def reset_password(data: ResetPasswordIn, db: Session = Depends(get_db)):
-    """복구 코드로 비밀번호 재설정"""
     user = db.query(User).filter(User.recovery_code == data.recovery_code).first()
     if not user:
         raise HTTPException(status_code=404, detail="해당 복구 코드를 가진 계정이 없습니다.")

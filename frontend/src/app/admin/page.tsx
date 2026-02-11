@@ -27,7 +27,7 @@ export default function FullAdminDashboard() {
 
   const rates = [5, 10, 15, 20, 25];
 
-  // 수수료율 변경 함수
+  // 기여분율 변경 함수
   const changeRate = (sector: string, newRate: number) => {
     setSectorData(prev => ({
       ...prev,
@@ -47,7 +47,7 @@ export default function FullAdminDashboard() {
           </div>
         </div>
 
-        {/* [섹션 1] 섹터별 수수료 및 통계 (A~D) */}
+        {/* [섹션 1] 섹터별 기여분 및 통계 (A~D) */}
         <div className="space-y-4">
           <h2 className="text-slate-400 text-xs font-black uppercase tracking-[0.3em] pl-2">Sector Configuration</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -70,7 +70,7 @@ export default function FullAdminDashboard() {
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-slate-500 text-[9px] uppercase font-bold text-center">Set Fee: {data.rate}%</p>
+                  <p className="text-slate-500 text-[9px] uppercase font-bold text-center">Contribution: {data.rate}%</p>
                   <div className="flex justify-between gap-1">
                     {rates.map(r => (
                       <button 
@@ -125,7 +125,7 @@ export default function FullAdminDashboard() {
                   <th className="p-6">User / Date</th>
                   <th className="p-6">Agent</th>
                   <th className="p-6 text-right">U-Power</th>
-                  <th className="p-6 text-center text-blue-400 font-black">Expected Fee</th>
+                  <th className="p-6 text-center text-blue-400 font-black">Expected Contribution</th>
                   <th className="p-6 text-right">Action</th>
                 </tr>
               </thead>

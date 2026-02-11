@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useAuth } from "@/lib/AuthContext";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 export default function Header() {
   const { locale, setLocale, t } = useLanguage();
@@ -11,7 +12,7 @@ export default function Header() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  const API_BASE_URL = getApiBaseUrl();
 
   // 알림 로드
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function Header() {
         <div className="flex items-center space-x-3 pointer-events-auto">
           {/* Language Toggle */}
           <button
+            type="button"
             onClick={toggleLocale}
             className="bg-slate-800/50 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-700/50 hover:bg-slate-700/50 transition-all"
           >
@@ -98,6 +100,7 @@ export default function Header() {
           {isLoggedIn && (
             <div className="relative hidden lg:block">
               <button
+                type="button"
                 onClick={() => setShowNotifDropdown(!showNotifDropdown)}
                 className="relative p-2 text-slate-400 hover:text-white transition-colors"
               >
@@ -148,6 +151,7 @@ export default function Header() {
               <div className="flex items-center space-x-3">
                 <span className="text-sm font-semibold text-slate-400">{user?.username}</span>
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="bg-red-500/20 text-red-400 px-4 py-2 rounded-2xl border border-red-500/30 hover:bg-red-500/30 transition-all active:scale-95 font-semibold text-sm"
                 >
@@ -159,6 +163,7 @@ export default function Header() {
 
           {/* Mobile Hamburger Button */}
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="lg:hidden flex flex-col justify-center items-center w-10 h-10 bg-slate-800/50 rounded-xl border border-slate-700/50"
           >
@@ -198,6 +203,7 @@ export default function Header() {
                     </a>
                   )}
                   <button
+                    type="button"
                     onClick={() => { closeMobileMenu(); handleLogout(); }}
                     className="text-red-400 font-semibold py-3 px-4 rounded-xl hover:bg-red-500/10 transition-colors text-left"
                   >

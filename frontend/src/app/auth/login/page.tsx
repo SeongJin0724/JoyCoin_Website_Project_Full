@@ -4,7 +4,9 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/Toast';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -14,6 +16,7 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { t, locale } = useLanguage();
+  const { refreshUser } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => { if (params.get("registered") === "1") setMsg(true); }, [params]);
@@ -22,7 +25,7 @@ function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,21 +34,22 @@ function LoginForm() {
       });
       const data = await response.json();
       if (response.ok) {
-        window.location.href = '/mypage';
+        await refreshUser();
+        router.push('/mypage');
       } else { toast(data.detail || t("loginFailed"), "error"); }
     } catch (err) { toast(locale === 'ko' ? "서버 연결 실패" : "Server connection failed", "error"); }
     finally { setIsLoading(false); }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 text-white font-sans">
-      <div className="glass p-10 rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl">
-        <h1 className="text-3xl font-black italic text-center mb-10 text-blue-500">{t("login").toUpperCase()}</h1>
+    <div className="min-h-screen flex items-center justify-center bg-[#020617] p-4 sm:p-6 text-white font-sans">
+      <div className="glass p-6 sm:p-10 rounded-2xl sm:rounded-[2.5rem] w-full max-w-md border border-blue-500/10 shadow-2xl">
+        <h1 className="text-2xl sm:text-3xl font-black italic text-center mb-6 sm:mb-10 text-blue-500">{t("login").toUpperCase()}</h1>
         {msg && <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs text-center rounded-2xl font-bold">{t("signupSuccess")}</div>}
         <form onSubmit={handleLogin} className="space-y-6">
-          <input type="email" placeholder={t("email")} required className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500" value={email} onChange={e => setEmail(e.target.value)} />
-          <input type="password" placeholder={t("password")} required className="w-full bg-slate-900/50 border border-slate-800 p-4 rounded-2xl outline-none focus:border-blue-500" value={password} onChange={e => setPassword(e.target.value)} />
-          <button type="submit" disabled={isLoading} className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black transition-all">
+          <input type="email" placeholder={t("email")} required className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base" value={email} onChange={e => setEmail(e.target.value)} />
+          <input type="password" placeholder={t("password")} required className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base" value={password} onChange={e => setPassword(e.target.value)} />
+          <button type="submit" disabled={isLoading} className="w-full py-3 sm:py-4 bg-blue-600 hover:bg-blue-500 rounded-xl sm:rounded-2xl font-black transition-all">
             {isLoading ? t("loading") : t("login").toUpperCase()}
           </button>
         </form>

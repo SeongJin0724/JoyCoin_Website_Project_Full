@@ -1,4 +1,17 @@
 services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    container_name: joycoin-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - web
+    restart: unless-stopped
+
   web:
     build:
       context: ..
@@ -9,38 +22,41 @@ services:
     env_file:
       - ./env/.env
     environment:
+      - DB_URL=${DB_URL:-postgresql+psycopg://app:app@db:5432/app}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
-    volumes:
-      - ../backend:/app
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: joycoin-redis
     ports:
       - "6379:6379"
+    restart: unless-stopped
 
   db:
     image: postgres:15-alpine
     container_name: joycoin-db
     environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
-      POSTGRES_DB: app
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}"]
       interval: 10s
       timeout: 10s
       retries: 10
       start_period: 60s
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/Toast';
+import { getApiBaseUrl } from '@/lib/apiBase';
+import { copyText } from '@/lib/clipboard';
 
 // 패키지 다국어 매핑 (joy_amount 기준)
 const packageNamesByJoy: Record<number, { ko: string; en: string }> = {
@@ -29,6 +31,13 @@ export default function BuyPage() {
   const [depositInfo, setDepositInfo] = useState<{ id: number; address: string; amount: number; joyAmount: number; chain: string } | null>(null);
   const [joyPerUsdt, setJoyPerUsdt] = useState(5.0);
   const [selectedChain, setSelectedChain] = useState('Polygon');
+  const [showConsent, setShowConsent] = useState(false);
+  const [consentChecks, setConsentChecks] = useState({
+    notInvestment: false,
+    risks: false,
+    notGuaranteed: false,
+    voluntary: false,
+  });
 
   const chains = [
     { id: 'Polygon', label: 'Polygon', color: 'purple' },
@@ -36,7 +45,7 @@ export default function BuyPage() {
     { id: 'TRON', label: 'TRON (TRC-20)', color: 'red' },
   ];
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  const API_BASE_URL = getApiBaseUrl();
 
   useEffect(() => {
     // 상품 + 환율 동시 로드
@@ -83,7 +92,7 @@ export default function BuyPage() {
 
   const handleDepositRequest = async () => {
     if (totalUsdt <= 0) {
-      toast(locale === 'ko' ? "구매하실 패키지를 먼저 선택해주세요!" : "Please select a package first!", "warning");
+      toast(locale === 'ko' ? "참여하실 패키지를 먼저 선택해주세요!" : "Please select a package first!", "warning");
       return;
     }
 
@@ -136,10 +145,14 @@ export default function BuyPage() {
     setMessage({ type: '', text: '' });
   };
 
-  const copyAddress = () => {
+  const copyAddress = async () => {
     if (depositInfo?.address) {
-      navigator.clipboard.writeText(depositInfo.address);
-      toast(locale === 'ko' ? '복사되었습니다!' : 'Copied!', 'success');
+      const copied = await copyText(depositInfo.address);
+      if (copied) {
+        toast(locale === 'ko' ? '복사되었습니다!' : 'Copied!', 'success');
+      } else {
+        toast(locale === 'ko' ? '복사에 실패했습니다.' : 'Copy failed.', 'error');
+      }
     }
   };
 
@@ -148,18 +161,18 @@ export default function BuyPage() {
       {/* 입금 정보 모달 */}
       {depositInfo && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 p-8 rounded-3xl w-full max-w-lg border border-blue-500/20 shadow-2xl relative">
-            <button onClick={closeDepositInfo} className="absolute top-4 right-4 text-slate-500 hover:text-white text-2xl">×</button>
+          <div className="bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl w-full max-w-lg border border-blue-500/20 shadow-2xl relative max-h-[95vh] overflow-y-auto">
+            <button onClick={closeDepositInfo} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-slate-500 hover:text-white text-2xl">×</button>
 
-            <h2 className="text-2xl font-bold text-blue-400 mb-6 text-center">
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-400 mb-4 sm:mb-6 text-center">
               {locale === 'ko' ? '입금 정보' : 'Deposit Info'}
             </h2>
 
-            <div className="bg-white p-4 rounded-xl mb-4 flex justify-center">
+            <div className="bg-white p-3 sm:p-4 rounded-xl mb-4 flex justify-center">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${depositInfo.address}`}
                 alt="QR Code"
-                className="w-44 h-44"
+                className="w-32 h-32 sm:w-44 sm:h-44"
               />
             </div>
 
@@ -167,7 +180,7 @@ export default function BuyPage() {
               <div className="bg-slate-800 p-4 rounded-xl">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs text-slate-400">{locale === 'ko' ? `USDT 입금 주소 (${depositInfo.chain})` : `USDT Address (${depositInfo.chain})`}</span>
-                  <button onClick={copyAddress} className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 bg-blue-500/10 rounded">
+                  <button type="button" onClick={copyAddress} className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 bg-blue-500/10 rounded touch-manipulation">
                     {locale === 'ko' ? '복사' : 'Copy'}
                   </button>
                 </div>
@@ -205,15 +218,67 @@ export default function BuyPage() {
         </div>
       )}
 
+      {/* Participation Consent Modal */}
+      {showConsent && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl w-full max-w-lg border border-cyan-500/20 shadow-2xl relative max-h-[95vh] overflow-y-auto">
+            <button onClick={() => setShowConsent(false)} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-slate-500 hover:text-white text-2xl">&times;</button>
+
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-2 text-center">Participation Confirmation</h2>
+            <p className="text-xs text-slate-400 text-center mb-6">
+              You are requesting allocation of JOY participation units. Please confirm:
+            </p>
+
+            <div className="space-y-3 mb-6">
+              <p className="text-xs text-slate-400 leading-relaxed">
+                JOY is not an investment product. Allocation is subject to verification.
+                Digital asset transfers are irreversible. Participation is voluntary and at your own risk.
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" checked={consentChecks.notInvestment} onChange={e => setConsentChecks(p => ({...p, notInvestment: e.target.checked}))} className="mt-0.5 accent-cyan-400" />
+                I understand JOY is not an investment product
+              </label>
+              <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" checked={consentChecks.risks} onChange={e => setConsentChecks(p => ({...p, risks: e.target.checked}))} className="mt-0.5 accent-cyan-400" />
+                I acknowledge digital asset transfer risks
+              </label>
+              <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" checked={consentChecks.notGuaranteed} onChange={e => setConsentChecks(p => ({...p, notGuaranteed: e.target.checked}))} className="mt-0.5 accent-cyan-400" />
+                I accept that allocation is not guaranteed
+              </label>
+              <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" checked={consentChecks.voluntary} onChange={e => setConsentChecks(p => ({...p, voluntary: e.target.checked}))} className="mt-0.5 accent-cyan-400" />
+                I confirm participation is voluntary
+              </label>
+            </div>
+
+            <button
+              onClick={() => { setShowConsent(false); handleDepositRequest(); }}
+              disabled={!consentChecks.notInvestment || !consentChecks.risks || !consentChecks.notGuaranteed || !consentChecks.voluntary}
+              className={`w-full py-3 rounded-xl text-sm font-bold tracking-wider transition-all ${
+                consentChecks.notInvestment && consentChecks.risks && consentChecks.notGuaranteed && consentChecks.voluntary
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-lg shadow-cyan-500/20'
+                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+              }`}
+            >
+              REQUEST ALLOCATION
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-blue-400">{locale === 'ko' ? 'JOY 코인 구매' : 'Buy JOY Coin'}</h1>
+        <div className="flex justify-between items-center mb-5 sm:mb-8">
+          <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-blue-400">{locale === 'ko' ? 'JOY 참여 요청' : 'Request JOY Allocation'}</h1>
           <a href="/mypage" className="text-sm text-slate-400 hover:text-white underline">
             {locale === 'ko' ? '마이페이지' : 'My Page'}
           </a>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
           {/* 패키지 목록 */}
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
@@ -223,13 +288,13 @@ export default function BuyPage() {
             {products.length > 0 ? (
               <div className="space-y-4">
                 {products.map((product) => (
-                  <div key={product.id} className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div key={product.id} className="bg-slate-900/50 border border-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-white mb-1">{getPackageName(product)}</h3>
-                      <p className="text-sm text-slate-400 mb-2">{product.description}</p>
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl font-bold">{product.price_usdt} USDT</span>
-                        <span className="text-blue-400">= {(product.price_usdt * joyPerUsdt).toLocaleString()} JOY</span>
+                      <h3 className="text-base sm:text-xl font-bold text-white mb-1">{getPackageName(product)}</h3>
+                      <p className="text-xs sm:text-sm text-slate-400 mb-2">{product.description}</p>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="text-lg sm:text-2xl font-bold">{product.price_usdt} USDT</span>
+                        <span className="text-sm sm:text-base text-blue-400">= {(product.price_usdt * joyPerUsdt).toLocaleString()} JOY</span>
                       </div>
                     </div>
 
@@ -237,14 +302,14 @@ export default function BuyPage() {
                       <button
                         onClick={() => updateQuantity(product.id, -1)}
                         disabled={quantities[product.id] === 0}
-                        className="w-10 h-10 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl text-xl font-bold transition-all"
+                        className="w-11 h-11 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl text-xl font-bold transition-all"
                       >
                         −
                       </button>
-                      <span className="w-12 text-center text-xl font-bold">{quantities[product.id] || 0}</span>
+                      <span className="w-10 sm:w-12 text-center text-lg sm:text-xl font-bold">{quantities[product.id] || 0}</span>
                       <button
                         onClick={() => updateQuantity(product.id, 1)}
-                        className="w-10 h-10 bg-blue-600 hover:bg-blue-500 rounded-xl text-xl font-bold transition-all"
+                        className="w-11 h-11 sm:w-10 sm:h-10 bg-blue-600 hover:bg-blue-500 rounded-xl text-xl font-bold transition-all"
                       >
                         +
                       </button>
@@ -263,11 +328,11 @@ export default function BuyPage() {
           {/* 주문 요약 */}
           <div className="lg:sticky lg:top-24 h-fit space-y-4">
             {/* 체인 선택 */}
-            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
-              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            <div className="bg-slate-900/50 border border-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+              <h2 className="text-xs sm:text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
                 {locale === 'ko' ? '네트워크 선택' : 'Select Network'}
               </h2>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                 {chains.map(chain => (
                   <button
                     key={chain.id}
@@ -284,8 +349,8 @@ export default function BuyPage() {
               </div>
             </div>
 
-            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
-              <h2 className="text-lg font-bold text-white mb-6">{locale === 'ko' ? '주문 요약' : 'Order Summary'}</h2>
+            <div className="bg-slate-900/50 border border-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-bold text-white mb-4 sm:mb-6">{locale === 'ko' ? '참여 요약' : 'Allocation Summary'}</h2>
 
               {/* 선택된 패키지 목록 */}
               <div className="space-y-2 mb-6 max-h-40 overflow-y-auto">
@@ -302,11 +367,11 @@ export default function BuyPage() {
 
               <div className="border-t border-slate-800 pt-4 space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">{locale === 'ko' ? '총 결제금액' : 'Total'}</span>
+                  <span className="text-slate-400">{locale === 'ko' ? '총 참여금액' : 'Total'}</span>
                   <span className="text-2xl font-bold">{totalUsdt.toLocaleString()} USDT</span>
                 </div>
                 <div className="flex justify-between bg-blue-600/20 p-3 rounded-xl">
-                  <span className="text-blue-300">{locale === 'ko' ? '받을 JOY' : 'JOY to receive'}</span>
+                  <span className="text-blue-300">{locale === 'ko' ? '배정 JOY' : 'JOY Allocation'}</span>
                   <span className="text-xl font-bold text-blue-400">{totalJoy.toLocaleString()} JOY</span>
                 </div>
               </div>
@@ -326,7 +391,7 @@ export default function BuyPage() {
                   <>
                     {!isLoggedIn && (
                       <p className="text-center text-xs text-slate-500 mb-3">
-                        {locale === 'ko' ? '* 구매하려면 로그인이 필요합니다' : '* Login required to purchase'}
+                        {locale === 'ko' ? '* 참여하려면 로그인이 필요합니다' : '* Login required to participate'}
                       </p>
                     )}
                     <button
@@ -342,12 +407,13 @@ export default function BuyPage() {
                           }
                           return;
                         }
-                        handleDepositRequest();
+                        setConsentChecks({ notInvestment: false, risks: false, notGuaranteed: false, voluntary: false });
+                        setShowConsent(true);
                       }}
                       disabled={requesting || totalUsdt === 0}
                       className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl font-bold text-lg transition-all"
                     >
-                      {requesting ? (locale === 'ko' ? '처리 중...' : 'Processing...') : (locale === 'ko' ? '구매하기' : 'Purchase')}
+                      {requesting ? (locale === 'ko' ? '처리 중...' : 'Processing...') : (locale === 'ko' ? '참여 요청' : 'Request Allocation')}
                     </button>
                   </>
                 )}

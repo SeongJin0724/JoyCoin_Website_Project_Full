@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/LanguageContext';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
 export default function RecoverPage() {
   const { locale } = useLanguage();
@@ -14,7 +15,7 @@ export default function RecoverPage() {
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [foundEmail, setFoundEmail] = useState('');
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+  const API_BASE_URL = getApiBaseUrl();
 
   const handleFindEmail = async (e: React.FormEvent) => {
     e.preventDefault();

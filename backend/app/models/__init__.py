@@ -10,6 +10,7 @@ from app.models.deposit_request import DepositRequest
 from app.models.point import Point
 from app.models.exchange_rate import ExchangeRate
 from app.models.notification import Notification
+from app.models.legal_consent import LegalConsent
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "Point",
     "ExchangeRate",
     "Notification",
+    "LegalConsent",
 ]

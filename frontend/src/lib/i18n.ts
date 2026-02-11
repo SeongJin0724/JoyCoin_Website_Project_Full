@@ -10,7 +10,7 @@ export const translations = {
     logout: "Logout",
     signup: "Sign Up",
     myPage: "My Page",
-    buy: "Buy",
+    buy: "Participate",
     admin: "Admin",
     loading: "Loading...",
     confirm: "Confirm",
@@ -38,8 +38,8 @@ export const translations = {
     alreadyHaveAccount: "Already have an account?",
     dontHaveAccount: "Don't have an account?",
 
-    // Buy
-    buyJoycoin: "Buy JOYCOIN",
+    // Participate
+    buyJoycoin: "Request JOY Allocation",
     fixedRate: "Fixed Rate",
     selectAmount: "Select Amount",
     addAmount: "Add Amount",
@@ -47,7 +47,7 @@ export const translations = {
     quantity: "Quantity",
     pricePerJoy: "Price per JOY",
     total: "Total",
-    proceedPayment: "Proceed to Payment",
+    proceedPayment: "Request Allocation",
     senderName: "Sender Name (Wallet Name)",
     senderNamePlaceholder: "Enter the name on your wallet",
     senderNameHelp: "Enter the name that will appear when you send USDT",
@@ -83,7 +83,7 @@ export const translations = {
     totalJoy: "Total JOY",
     totalPoints: "Total Points",
     referralRewardRemaining: "Referral Rewards Left",
-    referralRewardDesc: "10% bonus points on your next purchase",
+    referralRewardDesc: "10% bonus points on your next participation",
     quickMenu: "Quick Menu",
 
     // Notifications
@@ -110,7 +110,7 @@ export const translations = {
     logout: "로그아웃",
     signup: "회원가입",
     myPage: "마이페이지",
-    buy: "구매하기",
+    buy: "참여하기",
     admin: "관리자",
     loading: "로딩 중...",
     confirm: "확인",
@@ -138,8 +138,8 @@ export const translations = {
     alreadyHaveAccount: "이미 계정이 있으신가요?",
     dontHaveAccount: "계정이 없으신가요?",
 
-    // Buy
-    buyJoycoin: "조이코인 구매",
+    // Participate
+    buyJoycoin: "JOY 참여 요청",
     fixedRate: "고정 환율",
     selectAmount: "시작 수량 선택",
     addAmount: "수량 추가",
@@ -147,7 +147,7 @@ export const translations = {
     quantity: "수량",
     pricePerJoy: "JOY당 가격",
     total: "총액",
-    proceedPayment: "결제 진행하기",
+    proceedPayment: "참여 요청",
     senderName: "입금자명 (지갑 실명)",
     senderNamePlaceholder: "지갑에 등록된 이름을 입력하세요",
     senderNameHelp: "USDT 전송 시 표시되는 이름을 입력하세요",
@@ -183,7 +183,7 @@ export const translations = {
     totalJoy: "보유 JOY",
     totalPoints: "보유 포인트",
     referralRewardRemaining: "남은 추천 보상",
-    referralRewardDesc: "다음 구매 시 결제금액의 10% 포인트 적립",
+    referralRewardDesc: "다음 참여 시 결제금액의 10% 포인트 적립",
     quickMenu: "빠른 메뉴",
 
     // Notifications

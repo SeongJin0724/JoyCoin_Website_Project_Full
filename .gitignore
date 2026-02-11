@@ -7,6 +7,10 @@ build/
 # Frontend subdir (explicit)
 frontend/node_modules/
 frontend/.next/
+frontend/.next-dev/
+frontend/.next_*/
+frontend/dev*.log
+frontend/start*.log
 
 # Env files
 .env
@@ -30,6 +34,10 @@ pids
 *.pid
 *.seed
 *.pid.lock
+*.tmp
+*cookies*.txt
+*cookies*.tmp
+nul
 
 # Coverage directory used by tools like istanbul
 coverage/
