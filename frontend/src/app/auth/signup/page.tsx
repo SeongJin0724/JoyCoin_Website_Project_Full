@@ -203,14 +203,21 @@ export default function SignupPage() {
             className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base"
             value={formData.confirm} onChange={e => setFormData({...formData, confirm: e.target.value})} />
 
-          <input
-            type="text"
-            placeholder={locale === 'ko' ? 'JOY 수령 지갑 주소' : 'JOY receiving wallet address'}
-            required
-            className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base"
-            value={formData.wallet_address}
-            onChange={e => setFormData({...formData, wallet_address: e.target.value})}
-          />
+          <div>
+            <input
+              type="text"
+              placeholder={locale === 'ko' ? 'JOY 수령 지갑 주소' : 'JOY receiving wallet address'}
+              required
+              className="w-full bg-slate-900/50 border border-slate-800 p-3 sm:p-4 rounded-xl sm:rounded-2xl outline-none focus:border-blue-500 text-sm sm:text-base"
+              value={formData.wallet_address}
+              onChange={e => setFormData({...formData, wallet_address: e.target.value})}
+            />
+            <p className="text-[9px] text-red-400/70 mt-1 ml-1">
+              {locale === 'ko'
+                ? '⚠️ 지갑 주소를 잘못 입력하여 발생하는 코인 미수령 등의 문제는 본인 책임이며, 회사는 이에 대해 책임지지 않습니다.'
+                : '⚠️ The company is not responsible for any loss caused by incorrect wallet address entry.'}
+            </p>
+          </div>
 
           <select
             required

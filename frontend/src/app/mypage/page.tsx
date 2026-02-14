@@ -435,6 +435,11 @@ export default function MyPage() {
                   </button>
                 </div>
               </div>
+              <p className="text-[9px] text-red-400/70 mt-2">
+                {locale === 'ko'
+                  ? '⚠️ 지갑 주소를 잘못 입력하여 발생하는 코인 미수령 등의 문제는 본인 책임이며, 회사는 이에 대해 책임지지 않습니다.'
+                  : '⚠️ The company is not responsible for any loss caused by incorrect wallet address entry.'}
+              </p>
             </div>
 
             <button
