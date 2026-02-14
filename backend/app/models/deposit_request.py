@@ -65,6 +65,9 @@ class DepositRequest(Base):
         nullable=True
     )
     
+    # 블록체인 감지된 TX 해시
+    detected_tx_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
     # 관리자 메모
     admin_notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
     

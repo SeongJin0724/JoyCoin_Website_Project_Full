@@ -136,6 +136,13 @@ def ensure_schema_compatibility():
                 conn.execute(text("ALTER TABLE users ADD COLUMN wallet_address VARCHAR(128)"))
             logger.info("Added users.wallet_address column")
 
+    if "deposit_requests" in tables:
+        dr_columns = {col["name"] for col in inspector.get_columns("deposit_requests")}
+        if "detected_tx_hash" not in dr_columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE deposit_requests ADD COLUMN detected_tx_hash VARCHAR(128)"))
+            logger.info("Added deposit_requests.detected_tx_hash column")
+
 
 def seed_super_admin():
     """환경변수 기반 슈퍼관리자 1명 자동 생성"""

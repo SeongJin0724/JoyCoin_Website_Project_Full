@@ -18,6 +18,7 @@ class DepositRequestOut(BaseModel):
     expected_amount: float
     joy_amount: int = 0
     actual_amount: Optional[float] = None
+    detected_tx_hash: Optional[str] = None
     status: str
     admin_id: Optional[int] = None
     admin_notes: Optional[str] = None
@@ -47,6 +48,7 @@ class AdminDepositRequestOut(BaseModel):
     expected_amount: float
     joy_amount: int = 0
     actual_amount: Optional[float] = None
+    detected_tx_hash: Optional[str] = None
     status: str
     admin_id: Optional[int] = None
     admin_notes: Optional[str] = None

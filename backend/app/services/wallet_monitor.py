@@ -3,7 +3,12 @@ import time
 import logging
 import requests
 from app.core.config import settings
-from app.services.telegram import notify_deposit_detected
+from app.services.telegram import (
+    notify_deposit_detected,
+    notify_deposit_matched,
+    notify_deposit_underpaid,
+    notify_deposit_unmatched,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +25,126 @@ _notified_txs: set[str] = set()
 
 # 유효하지 않은 주소로 반복 에러 방지
 _disabled_chains: set[str] = set()
+
+
+# ──────────────────────────────────────────────
+# 입금 매칭 로직
+# ──────────────────────────────────────────────
+def _match_deposit_to_request(amount: float, sender: str, tx_hash: str, chain: str):
+    """
+    블록체인에서 감지된 입금을 DB의 pending 요청과 매칭.
+    소수점 식별자(0.37 등)를 기반으로 매칭.
+    """
+    from app.core.db import SessionLocal
+    from app.models import DepositRequest, ExchangeRate, Notification
+
+    db = SessionLocal()
+    try:
+        # 중복 처리 방지: 이미 매칭된 TX인지 확인
+        existing = db.query(DepositRequest).filter(
+            DepositRequest.detected_tx_hash == tx_hash
+        ).first()
+        if existing:
+            logger.info(f"TX {tx_hash[:16]}... already matched to deposit #{existing.id}")
+            return
+
+        # 소수점 추출 (예: 200.37 → 0.37)
+        amount_rounded = round(amount, 2)
+        decimal_part = round(amount_rounded % 1, 2)
+
+        # 같은 체인의 pending 요청 중 소수점이 일치하는 것 찾기
+        pending_requests = db.query(DepositRequest).filter(
+            DepositRequest.chain == chain,
+            DepositRequest.status == "pending",
+            DepositRequest.detected_tx_hash == None,
+        ).all()
+
+        matched = None
+        for req in pending_requests:
+            req_decimal = round(float(req.expected_amount) % 1, 2)
+            if req_decimal == decimal_part and decimal_part > 0:
+                matched = req
+                break
+
+        if not matched:
+            # 매칭 실패 → 미매칭 알림
+            logger.warning(f"No matching deposit for {amount} USDT on {chain} (decimal: {decimal_part})")
+            notify_deposit_unmatched(amount=amount, sender=sender, tx_hash=tx_hash, chain=chain)
+            return
+
+        # 매칭 성공 → DB 업데이트
+        matched.actual_amount = amount_rounded
+        matched.detected_tx_hash = tx_hash
+
+        # 유저 정보 로드
+        from app.models import User
+        user = db.query(User).filter(User.id == matched.user_id).first()
+        user_email = user.email if user else "unknown"
+
+        # 환율 조회
+        rate = db.query(ExchangeRate).filter(ExchangeRate.is_active == True).first()
+        joy_per_usdt = float(rate.joy_per_usdt) if rate else 5.0
+
+        # 금액 차이 판단 (소수점 식별자 제거한 정수 기준)
+        expected_base = int(float(matched.expected_amount))
+        actual_base = int(amount_rounded)
+        diff = expected_base - actual_base
+
+        if diff <= 0:
+            # 정상 입금 (같거나 많이 넣음)
+            logger.info(f"Deposit matched: #{matched.id} = {amount_rounded} USDT (expected {matched.expected_amount})")
+            notify_deposit_matched(
+                user_email=user_email,
+                expected=float(matched.expected_amount),
+                actual=amount_rounded,
+                joy_amount=matched.joy_amount,
+                chain=chain,
+                tx_hash=tx_hash,
+                deposit_id=matched.id,
+            )
+        else:
+            # 부족 입금 → JOY 재계산
+            recalculated_joy = int(actual_base * joy_per_usdt)
+            original_joy = matched.joy_amount
+            matched.joy_amount = recalculated_joy
+
+            logger.warning(
+                f"Underpaid deposit #{matched.id}: expected {expected_base}, got {actual_base}. "
+                f"JOY: {original_joy} → {recalculated_joy}"
+            )
+
+            notify_deposit_underpaid(
+                user_email=user_email,
+                expected=float(matched.expected_amount),
+                actual=amount_rounded,
+                original_joy=original_joy,
+                recalculated_joy=recalculated_joy,
+                chain=chain,
+                tx_hash=tx_hash,
+                deposit_id=matched.id,
+            )
+
+            # 유저 인앱 알림 생성
+            if user:
+                notif = Notification(
+                    user_id=user.id,
+                    title="입금 금액 부족",
+                    message=(
+                        f"예상 금액: {matched.expected_amount} USDT, "
+                        f"실제 입금: {amount_rounded} USDT. "
+                        f"해당 금액 기준 JOY {recalculated_joy:,}개 지급 예정."
+                    ),
+                    type="deposit_underpaid",
+                )
+                db.add(notif)
+
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Deposit matching error: {e}")
+    finally:
+        db.close()
 
 
 # ──────────────────────────────────────────────
@@ -62,7 +187,7 @@ def fetch_evm_usdt_transfers(admin_address: str, chain_id: int, contract: str) -
 
 
 def _process_evm_txs(transactions: list[dict], chain_name: str):
-    """EVM 트랜잭션 처리 (Polygon/Ethereum 공용)"""
+    """EVM 트랜잭션 처리 (Polygon/Ethereum 공용) + 자동 매칭"""
     for tx in transactions:
         tx_hash = tx.get("hash", "")
         key = f"{chain_name}:{tx_hash}"
@@ -72,6 +197,7 @@ def _process_evm_txs(transactions: list[dict], chain_name: str):
 
         raw_value = int(tx.get("value", "0"))
         amount = raw_value / (10 ** 6)  # USDT 6 decimals
+        amount = round(amount, 2)
 
         if amount <= 0:
             _notified_txs.add(key)
@@ -80,7 +206,8 @@ def _process_evm_txs(transactions: list[dict], chain_name: str):
         sender = tx.get("from", "unknown")
         logger.info(f"[{chain_name}] USDT deposit: {amount} from {sender} (tx: {tx_hash[:16]}...)")
 
-        notify_deposit_detected(
+        # 자동 매칭 시도
+        _match_deposit_to_request(
             amount=amount,
             sender=sender,
             tx_hash=tx_hash,
@@ -122,7 +249,7 @@ def fetch_tron_usdt_transfers(admin_address: str) -> list[dict]:
 
 
 def _process_tron_txs(transactions: list[dict]):
-    """TRON 트랜잭션 처리"""
+    """TRON 트랜잭션 처리 + 자동 매칭"""
     for tx in transactions:
         tx_hash = tx.get("transaction_id", "")
         key = f"TRON:{tx_hash}"
@@ -134,6 +261,7 @@ def _process_tron_txs(transactions: list[dict]):
         decimals = int(token_info.get("decimals", 6))
         raw_value = int(tx.get("value", "0"))
         amount = raw_value / (10 ** decimals)
+        amount = round(amount, 2)
 
         if amount <= 0:
             _notified_txs.add(key)
@@ -142,7 +270,8 @@ def _process_tron_txs(transactions: list[dict]):
         sender = tx.get("from", "unknown")
         logger.info(f"[TRON] USDT deposit: {amount} from {sender} (tx: {tx_hash[:16]}...)")
 
-        notify_deposit_detected(
+        # 자동 매칭 시도
+        _match_deposit_to_request(
             amount=amount,
             sender=sender,
             tx_hash=tx_hash,

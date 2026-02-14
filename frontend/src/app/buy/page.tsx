@@ -115,7 +115,7 @@ export default function BuyPage() {
         setDepositInfo({
           id: result.id,
           address: result.assigned_address,
-          amount: totalUsdt,
+          amount: result.expected_amount || totalUsdt,
           joyAmount: result.joy_amount || totalUsdt * joyPerUsdt,
           chain: selectedChain
         });
@@ -202,7 +202,7 @@ export default function BuyPage() {
                 <p className="font-semibold mb-1">{locale === 'ko' ? '⚠️ 주의사항' : '⚠️ Important'}</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>{locale === 'ko' ? `반드시 ${depositInfo.chain} 네트워크로 입금해주세요` : `Send via ${depositInfo.chain} network only`}</li>
-                  <li>{locale === 'ko' ? '정확한 금액을 입금해주세요' : 'Send the exact amount'}</li>
+                  <li>{locale === 'ko' ? '소수점 포함 정확한 금액을 입금해주세요 (예: 200.37 USDT)' : 'Send the exact amount including decimals (e.g. 200.37 USDT)'}</li>
                   <li>{locale === 'ko' ? '다른 네트워크로 전송 시 복구 불가' : 'Wrong network = unrecoverable'}</li>
                 </ul>
               </div>

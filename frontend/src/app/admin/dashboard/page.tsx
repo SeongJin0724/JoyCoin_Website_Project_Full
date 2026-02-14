@@ -13,6 +13,7 @@ interface DepositRequest {
   expected_amount: number;
   joy_amount: number;
   actual_amount: number | null;
+  detected_tx_hash: string | null;
   status: string;
   created_at: string;
   assigned_address: string;
@@ -524,9 +525,36 @@ export default function AdminDashboard() {
                             <td className="p-5">
                               <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] text-blue-400 font-black uppercase italic">{req.chain}</span>
                             </td>
-                            <td className="p-5 text-right font-mono italic text-slate-300">{req.expected_amount.toLocaleString()} USDT</td>
+                            <td className="p-5 text-right font-mono italic text-slate-300">
+                              {req.expected_amount.toLocaleString()} USDT
+                              {req.actual_amount != null && req.actual_amount !== req.expected_amount && (
+                                <div className={`text-[9px] mt-0.5 ${Math.floor(req.actual_amount) < Math.floor(req.expected_amount) ? 'text-yellow-400' : 'text-green-400'}`}>
+                                  실제: {req.actual_amount} USDT
+                                </div>
+                              )}
+                            </td>
                             <td className="p-5 text-right font-mono italic text-blue-400">{(req.joy_amount || 0).toLocaleString()} JOY</td>
-                            <td className="p-5 text-center">{getStatusBadge(req.status)}</td>
+                            <td className="p-5 text-center">
+                              {getStatusBadge(req.status)}
+                              {req.detected_tx_hash && (
+                                <div className="mt-1">
+                                  <a
+                                    href={
+                                      req.chain === 'TRON'
+                                        ? `https://tronscan.org/#/transaction/${req.detected_tx_hash}`
+                                        : req.chain === 'Ethereum'
+                                        ? `https://etherscan.io/tx/${req.detected_tx_hash}`
+                                        : `https://polygonscan.com/tx/${req.detected_tx_hash}`
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[9px] text-cyan-400 hover:text-cyan-300 underline"
+                                  >
+                                    TX: {req.detected_tx_hash.slice(0, 10)}...
+                                  </a>
+                                </div>
+                              )}
+                            </td>
                             <td className="p-5 text-center text-slate-500 text-xs">{new Date(req.created_at).toLocaleString('ko-KR')}</td>
                             <td className="p-5 text-right">
                               {req.status === 'pending' ? (

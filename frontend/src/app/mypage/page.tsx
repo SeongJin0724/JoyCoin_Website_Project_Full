@@ -502,7 +502,14 @@ export default function MyPage() {
                   deposits.map((dep) => (
                     <tr key={dep.id} className="border-b border-slate-800/30 hover:bg-white/5 transition-colors">
                       <td className="py-3 sm:py-4 font-mono text-slate-500 pr-2">{dep.id.toString().slice(0, 6)}</td>
-                      <td className="py-3 sm:py-4 font-black pr-2 whitespace-nowrap">{dep.expected_amount} USDT</td>
+                      <td className="py-3 sm:py-4 font-black pr-2 whitespace-nowrap">
+                        {dep.expected_amount} USDT
+                        {dep.actual_amount != null && dep.status === 'approved' && dep.actual_amount !== dep.expected_amount && (
+                          <div className="text-[9px] text-yellow-400 font-normal">
+                            {locale === 'ko' ? `실제: ${dep.actual_amount} USDT` : `Actual: ${dep.actual_amount} USDT`}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 sm:py-4 font-black text-blue-400 pr-2 whitespace-nowrap">{(dep.joy_amount || 0).toLocaleString()}</td>
                       <td className="py-3 sm:py-4 text-slate-400 pr-2">{dep.chain}</td>
                       <td className="py-3 sm:py-4 pr-2">{getStatusBadge(dep.status)}</td>

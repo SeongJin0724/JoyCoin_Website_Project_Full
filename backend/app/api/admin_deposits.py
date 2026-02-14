@@ -63,16 +63,28 @@ def approve_deposit(
         raise HTTPException(400, f"처리할 수 없는 상태입니다: {dr.status}")
 
     # 4. 입금 요청 정보 업데이트
-    dr.actual_amount = payload.actual_amount if payload.actual_amount else dr.expected_amount
+    dr.actual_amount = payload.actual_amount if payload.actual_amount else (dr.actual_amount or dr.expected_amount)
     dr.admin_notes = payload.admin_notes
     dr.admin_id = admin.id
     dr.status = "approved"
     dr.approved_at = datetime.utcnow()
 
-    # 5. [중요] 유저 total_joy에 구매한 JOY 수량 추가
+    # 5. [중요] actual_amount 기준으로 JOY 재계산 (부족 입금 대응)
     user = db.query(User).filter(User.id == dr.user_id).first()
     if not user:
         raise HTTPException(404, "해당 입금을 신청한 유저를 찾을 수 없습니다.")
+
+    # 소수점 식별자 제거 후 정수 기준 JOY 계산
+    actual = float(dr.actual_amount or dr.expected_amount)
+    expected_base = int(float(dr.expected_amount))
+    actual_base = int(actual)
+
+    if actual_base < expected_base:
+        # 부족 입금 → actual 기준으로 JOY 재계산
+        rate = db.query(ExchangeRate).filter(ExchangeRate.is_active == True).first()
+        joy_per_usdt = float(rate.joy_per_usdt) if rate else 5.0
+        dr.joy_amount = int(actual_base * joy_per_usdt)
+
     user.total_joy = int(user.total_joy or 0) + int(dr.joy_amount or 0)
 
     # 6. 추천 보상: 남은 횟수가 있으면 결제 USDT의 N%를 포인트로 적립
