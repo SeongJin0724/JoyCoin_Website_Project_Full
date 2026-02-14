@@ -224,34 +224,39 @@ export default function BuyPage() {
           <div className="bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl w-full max-w-lg border border-cyan-500/20 shadow-2xl relative max-h-[95vh] overflow-y-auto">
             <button onClick={() => setShowConsent(false)} className="absolute top-3 right-3 sm:top-4 sm:right-4 text-slate-500 hover:text-white text-2xl">&times;</button>
 
-            <h2 className="text-lg sm:text-xl font-bold text-white mb-2 text-center">Participation Confirmation</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-2 text-center">
+              {locale === 'ko' ? '참여 확인' : 'Participation Confirmation'}
+            </h2>
             <p className="text-xs text-slate-400 text-center mb-6">
-              You are requesting allocation of JOY participation units. Please confirm:
+              {locale === 'ko'
+                ? 'JOY 참여 단위 배정을 요청합니다. 아래 사항을 확인해 주세요:'
+                : 'You are requesting allocation of JOY participation units. Please confirm:'}
             </p>
 
             <div className="space-y-3 mb-6">
               <p className="text-xs text-slate-400 leading-relaxed">
-                JOY is not an investment product. Allocation is subject to verification.
-                Digital asset transfers are irreversible. Participation is voluntary and at your own risk.
+                {locale === 'ko'
+                  ? 'JOY는 투자 상품이 아닙니다. 배정은 관리자 확인 후 진행됩니다. 디지털 자산 전송은 되돌릴 수 없습니다. 참여는 자발적이며 본인의 책임 하에 이루어집니다.'
+                  : 'JOY is not an investment product. Allocation is subject to verification. Digital asset transfers are irreversible. Participation is voluntary and at your own risk.'}
               </p>
             </div>
 
             <div className="space-y-3 mb-6">
               <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
                 <input type="checkbox" checked={consentChecks.notInvestment} onChange={e => setConsentChecks(p => ({...p, notInvestment: e.target.checked}))} className="mt-0.5 accent-cyan-400" />
-                I understand JOY is not an investment product
+                {locale === 'ko' ? 'JOY가 투자 상품이 아님을 이해합니다' : 'I understand JOY is not an investment product'}
               </label>
               <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
                 <input type="checkbox" checked={consentChecks.risks} onChange={e => setConsentChecks(p => ({...p, risks: e.target.checked}))} className="mt-0.5 accent-cyan-400" />
-                I acknowledge digital asset transfer risks
+                {locale === 'ko' ? '디지털 자산 전송 위험을 인정합니다' : 'I acknowledge digital asset transfer risks'}
               </label>
               <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
                 <input type="checkbox" checked={consentChecks.notGuaranteed} onChange={e => setConsentChecks(p => ({...p, notGuaranteed: e.target.checked}))} className="mt-0.5 accent-cyan-400" />
-                I accept that allocation is not guaranteed
+                {locale === 'ko' ? '배정이 보장되지 않음을 수락합니다' : 'I accept that allocation is not guaranteed'}
               </label>
               <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
                 <input type="checkbox" checked={consentChecks.voluntary} onChange={e => setConsentChecks(p => ({...p, voluntary: e.target.checked}))} className="mt-0.5 accent-cyan-400" />
-                I confirm participation is voluntary
+                {locale === 'ko' ? '자발적 참여임을 확인합니다' : 'I confirm participation is voluntary'}
               </label>
             </div>
 
@@ -264,7 +269,7 @@ export default function BuyPage() {
                   : 'bg-slate-800 text-slate-600 cursor-not-allowed'
               }`}
             >
-              REQUEST ALLOCATION
+              {locale === 'ko' ? '참여 요청' : 'REQUEST ALLOCATION'}
             </button>
           </div>
         </div>
