@@ -448,7 +448,7 @@ export default function EntryGate({ children }: { children: React.ReactNode }) {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 min-w-0 py-2 sm:py-3 text-[9px] sm:text-xs font-medium transition-colors relative px-1 ${
+              className={`flex-1 min-w-0 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-colors relative px-1 ${
                 activeTab === tab.key
                   ? "text-cyan-400 bg-slate-800/50"
                   : "text-slate-500 hover:text-slate-300"
@@ -491,22 +491,22 @@ export default function EntryGate({ children }: { children: React.ReactNode }) {
             </p>
           )}
 
-          <label className={`flex items-start gap-2 text-[11px] sm:text-xs cursor-pointer ${allScrolled ? "text-slate-300" : "text-slate-600 pointer-events-none"}`}>
+          <label className={`flex items-start gap-2 text-xs cursor-pointer ${allScrolled ? "text-slate-300" : "text-slate-600 pointer-events-none"}`}>
             <input type="checkbox" checked={checks.notInvestment} onChange={(e) => setChecks((p) => ({ ...p, notInvestment: e.target.checked }))} disabled={!allScrolled} className="mt-0.5 accent-cyan-400 min-w-[16px]" />
             {t.check1}
           </label>
 
-          <label className={`flex items-start gap-2 text-[11px] sm:text-xs cursor-pointer ${allScrolled ? "text-slate-300" : "text-slate-600 pointer-events-none"}`}>
+          <label className={`flex items-start gap-2 text-xs cursor-pointer ${allScrolled ? "text-slate-300" : "text-slate-600 pointer-events-none"}`}>
             <input type="checkbox" checked={checks.risks} onChange={(e) => setChecks((p) => ({ ...p, risks: e.target.checked }))} disabled={!allScrolled} className="mt-0.5 accent-cyan-400 min-w-[16px]" />
             {t.check2}
           </label>
 
-          <label className={`flex items-start gap-2 text-[11px] sm:text-xs cursor-pointer ${allScrolled ? "text-slate-300" : "text-slate-600 pointer-events-none"}`}>
+          <label className={`flex items-start gap-2 text-xs cursor-pointer ${allScrolled ? "text-slate-300" : "text-slate-600 pointer-events-none"}`}>
             <input type="checkbox" checked={checks.terms} onChange={(e) => setChecks((p) => ({ ...p, terms: e.target.checked }))} disabled={!allScrolled} className="mt-0.5 accent-cyan-400 min-w-[16px]" />
             {t.check3}
           </label>
 
-          <label className={`flex items-start gap-2 text-[11px] sm:text-xs cursor-pointer ${allScrolled ? "text-slate-300" : "text-slate-600 pointer-events-none"}`}>
+          <label className={`flex items-start gap-2 text-xs cursor-pointer ${allScrolled ? "text-slate-300" : "text-slate-600 pointer-events-none"}`}>
             <input type="checkbox" checked={checks.privacy} onChange={(e) => setChecks((p) => ({ ...p, privacy: e.target.checked }))} disabled={!allScrolled} className="mt-0.5 accent-cyan-400 min-w-[16px]" />
             {t.check4}
           </label>

@@ -11,7 +11,7 @@ export default function Footer() {
       <p className="text-slate-600 text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em]">
         {t("footer")}
       </p>
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-1 text-[11px] sm:text-[10px] text-slate-600">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-1 text-xs sm:text-[11px] text-slate-600">
         <span className="font-semibold text-slate-500">Legal</span>
         <span className="hidden sm:inline mx-1">—</span>
         <div className="flex items-center gap-2 sm:gap-1 flex-wrap justify-center">

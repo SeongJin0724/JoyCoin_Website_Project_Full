@@ -342,7 +342,7 @@ export default function BuyPage() {
                   <button
                     key={chain.id}
                     onClick={() => setSelectedChain(chain.id)}
-                    className={`py-3 px-2 rounded-xl text-xs font-bold transition-all text-center ${
+                    className={`py-3 px-1 rounded-xl text-[10px] sm:text-xs font-bold transition-all text-center ${
                       selectedChain === chain.id
                         ? 'bg-blue-600 text-white border border-blue-500'
                         : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-transparent'

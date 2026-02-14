@@ -421,7 +421,7 @@ export default function MyPage() {
                     <button
                       type="button"
                       onClick={() => copyToClipboard(user.wallet_address || '', locale === 'ko' ? '복사되었습니다!' : 'Copied!')}
-                      className="text-[10px] font-bold text-blue-400 hover:text-blue-300 px-2 py-1 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-all touch-manipulation"
+                      className="text-[10px] font-bold text-blue-400 hover:text-blue-300 px-3 py-2 bg-blue-500/10 rounded-lg hover:bg-blue-500/20 transition-all touch-manipulation"
                     >
                       {locale === 'ko' ? '복사' : 'COPY'}
                     </button>
@@ -429,7 +429,7 @@ export default function MyPage() {
                   <button
                     type="button"
                     onClick={() => { setNewWalletAddress(user?.wallet_address || ''); setShowWalletModal(true); setWalletMessage({ type: '', text: '' }); }}
-                    className="text-[10px] font-bold text-yellow-400 hover:text-yellow-300 px-2 py-1 bg-yellow-500/10 rounded-lg hover:bg-yellow-500/20 transition-all touch-manipulation"
+                    className="text-[10px] font-bold text-yellow-400 hover:text-yellow-300 px-3 py-2 bg-yellow-500/10 rounded-lg hover:bg-yellow-500/20 transition-all touch-manipulation"
                   >
                     {locale === 'ko' ? '변경' : 'EDIT'}
                   </button>
@@ -488,7 +488,7 @@ export default function MyPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="text-[9px] sm:text-[10px] text-slate-600 uppercase border-b border-slate-800">
+                <tr className="text-[10px] sm:text-[11px] text-slate-600 uppercase border-b border-slate-800">
                   <th className="pb-3 sm:pb-4 font-black pr-2">ID</th>
                   <th className="pb-3 sm:pb-4 font-black pr-2">{t("amount")}</th>
                   <th className="pb-3 sm:pb-4 font-black pr-2">JOY</th>
